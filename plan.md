@@ -10,21 +10,25 @@ This document outlines the detailed implementation plan for the Skynet-MCP proje
 - [ ] Set up TypeScript environment and build pipeline
 - [ ] Install MCP SDK dependencies (`@modelcontextprotocol/sdk`)
 - [ ] Configure ESLint, Prettier, and TypeScript compiler options
-- [ ] Set up unit testing framework (Jest/Vitest)
+- [ ] Set up unit testing framework (Vitest)
 - [ ] Create Dockerfile and containerization setup
 - [ ] Establish CI/CD pipeline
 
 ### Technical Decisions:
+
 - Language: TypeScript (for both server and client components)
 - Transport Protocol: Server-Sent Events (SSE) for all communication
-- Testing Framework: Jest with ts-jest
-- Package Manager: npm/yarn/pnpm (TBD)
+- Testing Framework: Vitest with MSW for mocking
+- Linting and Formatting: ESLint and Prettier
+- Containerization: Docker for local development and deployment
+- Package Manager: npm
 
 ## 2. Core MCP Implementation
 
 ### Week 2-3: Dual-Mode MCP Implementation
 
 #### MCP Server Component:
+
 - [ ] Implement basic MCP server based on the specification
 - [ ] Set up SSE transport handling
 - [ ] Implement server initialization and capability declaration
@@ -33,6 +37,7 @@ This document outlines the detailed implementation plan for the Skynet-MCP proje
 - [ ] Add comprehensive logging
 
 #### MCP Client Component:
+
 - [ ] Implement MCP client for connecting to other servers
 - [ ] Support for SSE transport in client mode
 - [ ] Create client connection management system
@@ -40,12 +45,14 @@ This document outlines the detailed implementation plan for the Skynet-MCP proje
 - [ ] Add response handling and error management
 
 #### Integration Layer:
+
 - [ ] Create bridge between server and client components
 - [ ] Implement request/response forwarding
 - [ ] Add capability negotiation and filtering
 - [ ] Create unified logging across components
 
 ### Technical Decisions:
+
 - Use SSE for both client and server communication
 - Implement proper error propagation between layers
 - Create abstract interfaces for easier testing
@@ -64,6 +71,7 @@ This document outlines the detailed implementation plan for the Skynet-MCP proje
 - [ ] Create parent-child relationship tracking
 
 ### Technical Decisions:
+
 - Use state machine pattern for agent lifecycle
 - Store agent state in Redis or similar for distributed deployments
 - Implement event-based communication between agents
@@ -73,27 +81,31 @@ This document outlines the detailed implementation plan for the Skynet-MCP proje
 ### Weeks 6-7: Agent Orchestration Tools
 
 - [ ] Implement `spawn_agent` tool
+
   - [ ] Parameter validation and security checks
   - [ ] Agent configuration management
   - [ ] Model selection logic
   - [ ] Response handling
-  
+
 - [ ] Implement `get_agent_status` tool
+
   - [ ] Status reporting interface
   - [ ] Progress calculation
   - [ ] Child agent status aggregation
-  
+
 - [ ] Implement `get_agent_result` tool
+
   - [ ] Result formatting and compilation
   - [ ] Error handling and reporting
   - [ ] Partial result retrieval
-  
+
 - [ ] Implement `terminate_agent` tool
   - [ ] Graceful shutdown procedures
   - [ ] Child agent cleanup
   - [ ] Resource recovery
 
 ### Technical Decisions:
+
 - Create common interfaces for all agent tools
 - Implement robust parameter validation
 - Add comprehensive error handling and reporting
@@ -112,6 +124,7 @@ This document outlines the detailed implementation plan for the Skynet-MCP proje
 - [ ] Add state migration capabilities
 
 ### Technical Decisions:
+
 - Use provider pattern for different storage backends
 - Implement optimistic locking for state updates in distributed scenarios
 - Use efficient serialization format (Protocol Buffers, MessagePack, etc.)
@@ -130,6 +143,7 @@ This document outlines the detailed implementation plan for the Skynet-MCP proje
 - [ ] Set up monitoring and logging integrations
 
 ### Technical Decisions:
+
 - Use Terraform/Pulumi/CDK for infrastructure as code
 - Implement proper connection pooling for external services
 - Add environment-specific configuration management
@@ -148,6 +162,7 @@ This document outlines the detailed implementation plan for the Skynet-MCP proje
 - [ ] Create security documentation
 
 ### Technical Decisions:
+
 - Use standard authentication protocols (OAuth2, OIDC)
 - Implement principle of least privilege
 - Create comprehensive audit logging
@@ -166,6 +181,7 @@ This document outlines the detailed implementation plan for the Skynet-MCP proje
 - [ ] Create test documentation
 
 ### Technical Decisions:
+
 - Maintain 80%+ test coverage
 - Use mock servers for external dependencies
 - Implement contract testing for API interfaces
@@ -184,6 +200,7 @@ This document outlines the detailed implementation plan for the Skynet-MCP proje
 - [ ] Implement OpenAPI/Swagger specifications
 
 ### Technical Decisions:
+
 - Use automated documentation generation where possible
 - Create interactive examples
 - Implement documentation testing
@@ -202,6 +219,7 @@ This document outlines the detailed implementation plan for the Skynet-MCP proje
 - [ ] Implement analytics and insights gathering
 
 ### Technical Decisions:
+
 - Create pluggable system for task decomposition strategies
 - Implement adaptive model selection based on task characteristics
 - Add performance monitoring and auto-tuning
@@ -220,6 +238,7 @@ This document outlines the detailed implementation plan for the Skynet-MCP proje
 - [ ] Create release plan
 
 ### Technical Decisions:
+
 - Implement feature flags for staged rollout
 - Create telemetry system for gathering usage data
 - Set up automated feedback processing
@@ -238,31 +257,34 @@ This document outlines the detailed implementation plan for the Skynet-MCP proje
 - [ ] Create post-deployment validation plan
 
 ### Technical Decisions:
+
 - Use canary deployments for risk reduction
 - Implement comprehensive health checking
 - Set up automated rollback procedures
 
 ## Risk Assessment and Mitigation
 
-| Risk | Impact | Probability | Mitigation |
-|------|--------|------------|------------|
-| MCP protocol changes | High | Medium | Monitor spec changes, implement version handling |
-| Performance issues at scale | High | Medium | Early performance testing, architectural reviews |
-| Security vulnerabilities | High | Medium | Regular security audits, follow best practices |
-| Integration challenges with LLMs | Medium | High | Thorough testing with multiple models |
-| State management complexity | Medium | High | Robust design, comprehensive unit testing |
-| Cold-start latency in serverless | Medium | High | Implement warming strategies, optimize startup |
-| Resource consumption costs | Medium | Medium | Implement budgeting, monitoring, and optimization |
+| Risk                             | Impact | Probability | Mitigation                                        |
+| -------------------------------- | ------ | ----------- | ------------------------------------------------- |
+| MCP protocol changes             | High   | Medium      | Monitor spec changes, implement version handling  |
+| Performance issues at scale      | High   | Medium      | Early performance testing, architectural reviews  |
+| Security vulnerabilities         | High   | Medium      | Regular security audits, follow best practices    |
+| Integration challenges with LLMs | Medium | High        | Thorough testing with multiple models             |
+| State management complexity      | Medium | High        | Robust design, comprehensive unit testing         |
+| Cold-start latency in serverless | Medium | High        | Implement warming strategies, optimize startup    |
+| Resource consumption costs       | Medium | Medium      | Implement budgeting, monitoring, and optimization |
 
 ## Resource Requirements
 
 ### Development Team
+
 - 2-3 Backend Developers (TypeScript/Node.js)
 - 1 DevOps Engineer
 - 1 QA Engineer
 - 1 Project Manager
 
 ### Infrastructure
+
 - Development environment (local/cloud)
 - Testing environment
 - Staging environment
@@ -271,6 +293,7 @@ This document outlines the detailed implementation plan for the Skynet-MCP proje
 - Monitoring and logging infrastructure
 
 ### External Dependencies
+
 - MCP SDK and related libraries
 - LLM API access (Anthropic, OpenAI, etc.)
 - Redis or similar for distributed state
