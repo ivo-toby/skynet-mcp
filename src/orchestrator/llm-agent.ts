@@ -14,12 +14,8 @@ import {
   SystemMessagePromptTemplate,
 } from '@langchain/core/prompts';
 import { AgentExecutor, createOpenAIFunctionsAgent } from 'langchain/agents';
-import { pull } from 'langchain/hub';
-import { DynamicStructuredTool, DynamicTool, Tool } from '@langchain/core/tools';
-import { z } from 'zod';
+import { DynamicTool } from '@langchain/core/tools';
 import { BaseChatModel } from '@langchain/core/language_models/chat_models';
-import { RunnableSequence } from '@langchain/core/runnables';
-import { ChainValues } from '@langchain/core/utils/types';
 
 /**
  * LLM provider types supported by the agent
@@ -51,6 +47,14 @@ export interface LlmAgentConfig extends SimpleAgentConfig {
 }
 
 /**
+ * Mock tool servers and tools
+ */
+interface MockTool {
+  name: string;
+  description: string;
+}
+
+/**
  * LLM-powered agent that can process natural language prompts
  */
 export class LlmAgent extends SimpleAgent {
@@ -59,6 +63,7 @@ export class LlmAgent extends SimpleAgent {
   private langchainTools: DynamicTool[] = [];
   private systemPrompt: string;
   private llmConfig: LlmAgentConfig;
+  private mockTools: Map<string, MockTool[]> = new Map();
 
   /**
    * Create a new LLM agent
@@ -74,6 +79,32 @@ export class LlmAgent extends SimpleAgent {
 
     // Initialize the LLM based on the provider
     this.llm = this.initializeLlm(config.model);
+
+    // Set up mock tools for demonstration
+    this.setupMockTools();
+  }
+
+  /**
+   * Set up mock tools for demonstration purposes
+   */
+  private setupMockTools(): void {
+    // Mock calculator tools
+    for (const server of this.config.toolServers) {
+      this.mockTools.set(server.name, [
+        {
+          name: 'add',
+          description: 'Add two numbers',
+        },
+        {
+          name: 'subtract',
+          description: 'Subtract second number from first number',
+        },
+        {
+          name: 'calculate',
+          description: 'Calculate mathematical expressions',
+        },
+      ]);
+    }
   }
 
   /**
@@ -126,9 +157,11 @@ export class LlmAgent extends SimpleAgent {
   private createLangChainTools(): DynamicTool[] {
     const tools: DynamicTool[] = [];
 
-    // Convert each MCP tool to a LangChain tool
-    for (const [serverName, toolNames] of this.availableTools.entries()) {
-      for (const toolName of Array.from(toolNames)) {
+    // Convert each mock tool to a LangChain tool
+    for (const [serverName, mockToolList] of this.mockTools.entries()) {
+      for (const mockTool of mockToolList) {
+        const toolName = mockTool.name;
+
         // Create tool based on the type
         if (toolName === 'add') {
           tools.push(
@@ -174,17 +207,20 @@ export class LlmAgent extends SimpleAgent {
               },
             }),
           );
-        } else {
-          // Generic tool for other types
+        } else if (toolName === 'calculate') {
           tools.push(
             new DynamicTool({
               name: `${serverName}_${toolName}`,
-              description: `Use the ${toolName} tool on the ${serverName} server. Input should be a JSON string representing the parameters.`,
+              description: `Calculate a mathematical expression using the ${toolName} tool on the ${serverName} server. Input should be a JSON object with an 'expression' property.`,
               func: async (input: string) => {
                 try {
                   // Parse input as parameters for the tool
-                  const args = JSON.parse(input);
-                  const response = await this.callToolIfAvailable(toolName, args);
+                  const parsed = JSON.parse(input);
+                  if (typeof parsed.expression !== 'string') {
+                    return "Error: Input must have an 'expression' property with a string value.";
+                  }
+
+                  const response = await this.callToolIfAvailable(toolName, parsed);
                   return response?.result || 'Tool call failed';
                 } catch (error) {
                   console.error(`Error using ${toolName} tool:`, error);
@@ -267,7 +303,7 @@ export class LlmAgent extends SimpleAgent {
   ): Promise<ToolResponse | null> {
     console.log(`Mock tool call: ${toolName} with args:`, args);
 
-    // Simulate a calculator
+    // Simulate a calculator tool
     if (toolName === 'add' && typeof args.a === 'number' && typeof args.b === 'number') {
       return {
         serverName: 'calculator',
@@ -284,9 +320,33 @@ export class LlmAgent extends SimpleAgent {
         toolName: 'subtract',
         result: `${args.a - args.b}`,
       };
+    } else if (toolName === 'calculate' && typeof args.expression === 'string') {
+      try {
+        // Simple eval for demo purposes only - NEVER do this in production
+        const result = Function('"use strict"; return (' + args.expression + ')')();
+        return {
+          serverName: 'calculator',
+          toolName: 'calculate',
+          result: `${result}`,
+        };
+      } catch (error) {
+        console.error('Error evaluating expression:', error);
+        return {
+          serverName: 'calculator',
+          toolName: 'calculate',
+          result: `Error: Invalid expression`,
+        };
+      }
     }
 
     // No matching tool found
     return null;
+  }
+
+  /**
+   * Register local tools that can be used without MCP server
+   */
+  registerLocalTools(tools: Record<string, unknown>): void {
+    console.log('Local tools registered:', Object.keys(tools));
   }
 }

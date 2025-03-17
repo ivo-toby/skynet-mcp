@@ -15,15 +15,21 @@ async function runDemo() {
 
   // Configure the agent
   const agentConfig: SimpleAgentConfig = {
-    toolServers: [],
+    toolServers: [
+      {
+        name: 'calculator',
+        url: 'http://localhost:3000/mock-mcp',
+      },
+    ],
     maxToolCalls: 5,
   };
 
   // Create and initialize the agent
   const agent = new SimpleAgent(agentConfig);
+  await agent.initialize();
 
-  // Process some example prompts
   try {
+    // Process some example prompts
     const examples = [
       'What is 5 + 3?',
       'Calculate 10 - 4',
@@ -34,25 +40,7 @@ async function runDemo() {
       console.log('\n-----------------------------------');
       console.log(`Prompt: "${prompt}"`);
 
-      // Simulate a response for demonstration
-      let response: string;
-
-      if (
-        prompt.toLowerCase().includes('5') &&
-        prompt.toLowerCase().includes('+') &&
-        prompt.toLowerCase().includes('3')
-      ) {
-        response = "I processed your request using the 'add' tool. The result is: 8";
-      } else if (
-        prompt.toLowerCase().includes('10') &&
-        prompt.toLowerCase().includes('-') &&
-        prompt.toLowerCase().includes('4')
-      ) {
-        response = "I processed your request using the 'subtract' tool. The result is: 6";
-      } else {
-        response = `I couldn't find a suitable tool to process your request: "${prompt}". In a real implementation, I would connect to an MCP server with appropriate tools.`;
-      }
-
+      const response = await agent.processPrompt(prompt);
       console.log('Response:', response);
       console.log('-----------------------------------\n');
     }
