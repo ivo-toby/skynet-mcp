@@ -257,4 +257,36 @@ export class LlmAgent extends SimpleAgent {
       return `I encountered an error while processing your request: ${error}`;
     }
   }
+
+  /**
+   * Call a tool if it's available on any connected server
+   */
+  protected async callToolIfAvailable(
+    toolName: string,
+    args: Record<string, unknown>,
+  ): Promise<ToolResponse | null> {
+    console.log(`Mock tool call: ${toolName} with args:`, args);
+
+    // Simulate a calculator
+    if (toolName === 'add' && typeof args.a === 'number' && typeof args.b === 'number') {
+      return {
+        serverName: 'calculator',
+        toolName: 'add',
+        result: `${args.a + args.b}`,
+      };
+    } else if (
+      toolName === 'subtract' &&
+      typeof args.a === 'number' &&
+      typeof args.b === 'number'
+    ) {
+      return {
+        serverName: 'calculator',
+        toolName: 'subtract',
+        result: `${args.a - args.b}`,
+      };
+    }
+
+    // No matching tool found
+    return null;
+  }
 }

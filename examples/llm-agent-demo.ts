@@ -9,14 +9,13 @@ import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'node:http';
-import { LlmAgent, LlmProviderType } from '../src/orchestrator/index.js';
 
 // Define the default configuration
 const DEFAULT_CONFIG = {
   port: 3001,
   openaiApiKey: process.env.OPENAI_API_KEY || '',
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
-  provider: LlmProviderType.OPENAI,
+  provider: 'openai',
   model: 'gpt-4o',
   systemPrompt: `You are a helpful AI assistant that can perform calculations and answer questions.
 When asked to perform mathematical operations, use the calculator tool.
@@ -35,17 +34,28 @@ async function runDemo() {
     process.exit(1);
   }
 
-  // Create tool server
+  // Create HTTP server
   const app = express();
   app.use(cors());
   app.use(express.json());
 
-  // Create HTTP server
   const httpServer = createServer(app);
 
   // Setup routes
   app.get('/', (req, res) => {
     res.send('LLM Agent Demo Server Running');
+  });
+
+  // Placeholder calculator endpoint
+  app.post('/api/calculate', (req, res) => {
+    const { expression } = req.body;
+    try {
+      // Simple eval for demo purposes only
+      const result = Function('"use strict"; return (' + expression + ')')();
+      res.json({ result });
+    } catch (error) {
+      res.status(400).json({ error: 'Invalid expression' });
+    }
   });
 
   // Start server
@@ -60,65 +70,21 @@ async function runDemo() {
   // Wait for server to start
   await serverPromise;
 
-  // Initialize the LLM agent
-  const agent = new LlmAgent({
-    toolServers: [
-      {
-        name: 'calculator',
-        url: `http://localhost:${DEFAULT_CONFIG.port}/mcp`,
-      },
-    ],
-    maxToolCalls: 5,
-    model: {
-      provider: DEFAULT_CONFIG.provider,
-      modelName: DEFAULT_CONFIG.model,
-      apiKey:
-        DEFAULT_CONFIG.provider === LlmProviderType.OPENAI
-          ? DEFAULT_CONFIG.openaiApiKey
-          : DEFAULT_CONFIG.anthropicApiKey,
-      temperature: 0.7,
-    },
-    systemPrompt: DEFAULT_CONFIG.systemPrompt,
-    verbose: true,
-  });
-
-  // Initialize the agent
-  await agent.initialize();
-
+  console.log('\nLLM Agent Demo Server is running!');
   console.log(
-    `\nLLM Agent initialized with ${DEFAULT_CONFIG.provider} model: ${DEFAULT_CONFIG.model}`,
+    `The calculator API is available at http://localhost:${DEFAULT_CONFIG.port}/api/calculate`,
   );
-  console.log('Available tools:');
-  console.log('- calculator.calculate: Calculate mathematical expressions');
-  console.log('\nType a prompt and press Enter. Type "exit" to quit.\n');
-
-  // Handle user input
-  process.stdin.setEncoding('utf8');
-  process.stdin.on('data', async (data: Buffer) => {
-    const input = data.toString().trim();
-
-    if (input.toLowerCase() === 'exit') {
-      console.log('Shutting down demo...');
-      await agent.shutdown();
-      server.close();
-      process.exit(0);
-    }
-
-    console.log(`\nProcessing: "${input}"`);
-    try {
-      const result = await agent.processPrompt(input);
-      console.log('\nResult:');
-      console.log(result);
-      console.log('\nEnter a new prompt or type "exit" to quit:');
-    } catch (error) {
-      console.error('Error processing prompt:', error);
-    }
-  });
+  console.log(
+    '\nNote: The LLM agent functionality is currently disabled due to MCP SDK compatibility issues.',
+  );
+  console.log(
+    'To use the calculator directly, send a POST request with JSON body: { "expression": "2 + 2" }',
+  );
+  console.log('\nPress Ctrl+C to quit.');
 
   // Handle SIGINT (Ctrl+C)
   process.on('SIGINT', async () => {
     console.log('\nReceived SIGINT. Shutting down...');
-    await agent.shutdown();
     server.close();
     process.exit(0);
   });
