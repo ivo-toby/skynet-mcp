@@ -7,6 +7,9 @@ describe('Configuration System', () => {
   const originalEnv = process.env;
   const configDir = path.resolve(process.cwd(), 'config');
   const testConfigPath = path.join(configDir, 'test.json');
+  const devConfigPath = path.join(configDir, 'development.json');
+  let devConfigExists = false;
+  let devConfigBackup: string | null = null;
 
   beforeEach(() => {
     // Reset process.env for each test
@@ -17,6 +20,13 @@ describe('Configuration System', () => {
     if (!fs.existsSync(configDir)) {
       fs.mkdirSync(configDir, { recursive: true });
     }
+
+    // Temporarily move development.json if it exists to avoid interference
+    if (fs.existsSync(devConfigPath)) {
+      devConfigExists = true;
+      devConfigBackup = fs.readFileSync(devConfigPath, 'utf-8');
+      fs.renameSync(devConfigPath, `${devConfigPath}.bak`);
+    }
   });
 
   afterEach(() => {
@@ -26,6 +36,15 @@ describe('Configuration System', () => {
     // Clean up test config file
     if (fs.existsSync(testConfigPath)) {
       fs.unlinkSync(testConfigPath);
+    }
+
+    // Restore development.json if it existed
+    if (devConfigExists) {
+      if (fs.existsSync(`${devConfigPath}.bak`)) {
+        fs.renameSync(`${devConfigPath}.bak`, devConfigPath);
+      } else if (devConfigBackup) {
+        fs.writeFileSync(devConfigPath, devConfigBackup);
+      }
     }
   });
 

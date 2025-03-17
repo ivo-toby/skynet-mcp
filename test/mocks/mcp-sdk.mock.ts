@@ -2,71 +2,95 @@
  * Mock implementation of the MCP SDK for testing
  */
 
+import { vi } from 'vitest';
+
+// Mock Transport interface
+export class MockTransport {
+  start = vi.fn().mockResolvedValue(undefined);
+  send = vi.fn().mockResolvedValue(undefined);
+  close = vi.fn().mockResolvedValue(undefined);
+  type: string;
+
+  constructor(type = 'sse') {
+    this.type = type;
+  }
+}
+
 // Mock Server class
-export class Server {
-  private handlers: Map<string, (request: any) => Promise<any>> = new Map();
-  public onerror: (error: Error) => void = () => {};
+export class MockServer {
+  identity: any;
+  options: any;
+  connect = vi.fn().mockResolvedValue(undefined);
+  close = vi.fn().mockResolvedValue(undefined);
+  useTransport = vi.fn();
+  transport = null;
 
-  constructor(
-    public metadata: { name: string; version: string },
-    public options: { capabilities: Record<string, unknown> },
-  ) {}
-
-  async connect(transport: any): Promise<void> {
-    // Mock implementation
-    return Promise.resolve();
+  constructor(identity: any, options: any) {
+    this.identity = identity;
+    this.options = options;
   }
 
-  async close(): Promise<void> {
-    // Mock implementation
-    return Promise.resolve();
-  }
-
-  setRequestHandler<T>(schema: any, handler: (request: any) => Promise<T>): void {
-    this.handlers.set(schema.name || 'unknown', handler);
-  }
+  // Add any other methods needed
 }
 
 // Mock Client class
-export class Client {
-  public onerror: (error: Error) => void = () => {};
-  private connected = false;
+export class MockClient {
+  identity: any;
+  options: any;
+  connect = vi.fn().mockResolvedValue(undefined);
+  close = vi.fn().mockResolvedValue(undefined);
+  useTransport = vi.fn();
+  transport = null;
+  isConnected = vi.fn().mockReturnValue(true);
 
-  constructor(
-    public metadata: { name: string; version: string },
-    public options: { capabilities: Record<string, unknown> },
-  ) {}
-
-  async connect(transport: any): Promise<void> {
-    this.connected = true;
-    return Promise.resolve();
+  constructor(identity: any, options: any) {
+    this.identity = identity;
+    this.options = options;
   }
 
-  async close(): Promise<void> {
-    this.connected = false;
-    return Promise.resolve();
-  }
+  // Add any other methods needed
+}
 
-  async listTools(): Promise<{ tools: Array<{ name: string; description?: string }> }> {
-    return {
-      tools: [
-        { name: 'mock-tool-1', description: 'A mock tool for testing' },
-        { name: 'mock-tool-2', description: 'Another mock tool for testing' },
-      ],
-    };
-  }
+// Mock the Transport type
+vi.mock('@modelcontextprotocol/sdk/shared/transport.js', () => {
+  return {
+    Transport: MockTransport,
+  };
+});
 
-  async callTool(name: string, args: Record<string, unknown>): Promise<any> {
-    return {
-      content: [
-        {
-          type: 'text',
-          text: 'Mock tool result',
-        },
-      ],
-    };
+// Mock modules
+vi.mock('@modelcontextprotocol/sdk/server/index.js', () => {
+  return {
+    Server: MockServer,
+  };
+});
+
+vi.mock('@modelcontextprotocol/sdk/client/index.js', () => {
+  return {
+    Client: MockClient,
+  };
+});
+
+// Mock SSE Transport
+export class MockSSETransport extends MockTransport {
+  mount = vi.fn();
+  constructor() {
+    super('sse');
   }
 }
+
+vi.mock('@modelcontextprotocol/sdk/transport/sse/index.js', () => {
+  return {
+    SSETransport: MockSSETransport,
+  };
+});
+
+export default {
+  MockServer,
+  MockClient,
+  MockSSETransport,
+  MockTransport,
+};
 
 // Mock error codes
 export enum ErrorCode {

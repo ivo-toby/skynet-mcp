@@ -14,13 +14,13 @@ type ClientTransport = Transport;
  * Creates a new MCP server instance with the provided options
  * @param name Server name
  * @param version Server version
- * @param options Additional server options
+ * @param capabilities Additional server capabilities
  * @returns Configured MCP server instance
  */
 export function createServer(
   name: string,
   version: string,
-  options: Partial<ServerOptions> = {},
+  capabilities: Record<string, any> = {},
 ): Server {
   return new Server(
     {
@@ -28,8 +28,7 @@ export function createServer(
       version,
     },
     {
-      capabilities: options.capabilities || {},
-      ...options,
+      capabilities: capabilities,
     },
   );
 }
@@ -38,13 +37,13 @@ export function createServer(
  * Creates a new MCP client instance with the provided options
  * @param name Client name
  * @param version Client version
- * @param options Additional client options
+ * @param capabilities Additional client capabilities
  * @returns Configured MCP client instance
  */
 export function createClient(
   name: string,
   version: string,
-  options: Partial<ClientOptions> = {},
+  capabilities: Record<string, any> = {},
 ): Client {
   return new Client(
     {
@@ -52,75 +51,82 @@ export function createClient(
       version,
     },
     {
-      capabilities: options.capabilities || {},
-      ...options,
+      capabilities: capabilities,
     },
   );
 }
 
 /**
- * Gets the current MCP SDK version
- * @returns The current SDK version string
+ * Gets the current SDK version from package.json
+ * @returns SDK version as string
  */
 export function getSdkVersion(): string {
-  try {
-    // In a real implementation, we would dynamically import the package.json
-    // or use a method provided by the SDK to get its version
-    // For now, we'll use the version from our package.json
-    return '1.7.0';
-  } catch (error) {
-    console.error('Error getting SDK version:', error);
-    return '0.0.0';
-  }
+  // Try to get the version from package.json
+  return process.env.npm_package_dependencies_modelcontextprotocol_sdk || '1.7.0';
 }
 
 /**
- * Checks if the SDK version is compatible with the required version
- * @param requiredVersion The minimum required version
- * @returns True if the SDK version is compatible, false otherwise
+ * Checks if the provided SDK version is compatible with the current version
+ * @param currentVersion The current SDK version
+ * @param requiredVersion The required SDK version to check compatibility with
+ * @returns True if compatible, false otherwise
  */
-export function checkSdkVersionCompatibility(requiredVersion: string): boolean {
-  try {
-    const sdkVersion = getSdkVersion();
+export function checkSdkVersionCompatibility(
+  currentVersion: string,
+  requiredVersion: string,
+): boolean {
+  // Parse versions
+  let currentParts: number[];
+  let requiredParts: number[];
 
-    // Validate version strings
-    const versionRegex = /^\d+\.\d+\.\d+$/;
-    if (!versionRegex.test(requiredVersion) || !versionRegex.test(sdkVersion)) {
+  try {
+    currentParts = currentVersion.split('.').map(Number);
+    requiredParts = requiredVersion.split('.').map(Number);
+
+    // Ensure we have full semver (major.minor.patch)
+    if (currentParts.length !== 3 || requiredParts.length !== 3) {
       console.error('Invalid version format. Expected format: x.y.z');
       return false;
     }
 
-    // Simple version comparison
-    const [reqMajor, reqMinor, reqPatch] = requiredVersion.split('.').map(Number);
-    const [sdkMajor, sdkMinor, sdkPatch] = sdkVersion.split('.').map(Number);
-
-    if (sdkMajor > reqMajor) return true;
-    if (sdkMajor < reqMajor) return false;
-
-    if (sdkMinor > reqMinor) return true;
-    if (sdkMinor < reqMinor) return false;
-
-    return sdkPatch >= reqPatch;
+    // Check for NaN
+    if (currentParts.some(isNaN) || requiredParts.some(isNaN)) {
+      console.error('Invalid version format. Expected format: x.y.z');
+      return false;
+    }
   } catch (error) {
-    console.error('Error checking SDK version compatibility:', error);
+    console.error('Invalid version format. Expected format: x.y.z');
     return false;
   }
+
+  // For now, we only enforce minor version compatibility
+  // Major version difference - not compatible
+  if (currentParts[0] !== requiredParts[0]) {
+    return false;
+  }
+
+  // Minor version should be at least the required minor
+  if (currentParts[1] < requiredParts[1]) {
+    return false;
+  }
+
+  // If major and minor match, patch version doesn't matter for compatibility
+  return true;
 }
 
 /**
- * Connects a server to a transport with enhanced error handling
- * @param server The MCP server instance
- * @param transport The server transport to connect to
- * @param retryOptions Options for connection retry (optional)
- * @returns A promise that resolves when the connection is established
+ * Connects a server to a transport with retry options
+ * @param server The MCP server to connect
+ * @param transport The transport to connect to
+ * @param retryOptions Options for retry behavior
  */
 export async function connectServer(
   server: Server,
   transport: ServerTransport,
-  retryOptions?: { maxRetries?: number; retryDelay?: number },
+  retryOptions?: { maxRetries?: number; delayMs?: number },
 ): Promise<void> {
   const maxRetries = retryOptions?.maxRetries || 0;
-  const retryDelay = retryOptions?.retryDelay || 1000;
+  const delayMs = retryOptions?.delayMs || 1000;
   let retryCount = 0;
 
   while (true) {
@@ -129,34 +135,32 @@ export async function connectServer(
       return;
     } catch (error) {
       retryCount++;
-
       if (retryCount > maxRetries) {
         console.error('Error connecting server to transport after retries:', error);
         throw new Error(
-          `Failed to connect server after ${maxRetries} retries: ${error instanceof Error ? error.message : String(error)}`,
+          `Failed to connect server after ${maxRetries} retries: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
         );
       }
-
-      console.warn(`Connection attempt ${retryCount} failed, retrying in ${retryDelay}ms...`);
-      await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
 }
 
 /**
- * Connects a client to a transport with enhanced error handling
- * @param client The MCP client instance
- * @param transport The client transport to connect to
- * @param retryOptions Options for connection retry (optional)
- * @returns A promise that resolves when the connection is established
+ * Connects a client to a transport with retry options
+ * @param client The MCP client to connect
+ * @param transport The transport to connect to
+ * @param retryOptions Options for retry behavior
  */
 export async function connectClient(
   client: Client,
   transport: ClientTransport,
-  retryOptions?: { maxRetries?: number; retryDelay?: number },
+  retryOptions?: { maxRetries?: number; delayMs?: number },
 ): Promise<void> {
   const maxRetries = retryOptions?.maxRetries || 0;
-  const retryDelay = retryOptions?.retryDelay || 1000;
+  const delayMs = retryOptions?.delayMs || 1000;
   let retryCount = 0;
 
   while (true) {
@@ -165,24 +169,22 @@ export async function connectClient(
       return;
     } catch (error) {
       retryCount++;
-
       if (retryCount > maxRetries) {
         console.error('Error connecting client to transport after retries:', error);
         throw new Error(
-          `Failed to connect client after ${maxRetries} retries: ${error instanceof Error ? error.message : String(error)}`,
+          `Failed to connect client after ${maxRetries} retries: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
         );
       }
-
-      console.warn(`Connection attempt ${retryCount} failed, retrying in ${retryDelay}ms...`);
-      await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
 }
 
 /**
- * Safely closes a server connection with error handling
- * @param server The MCP server instance to close
- * @returns A promise that resolves when the server is closed
+ * Closes a server connection
+ * @param server The MCP server to close
  */
 export async function closeServer(server: Server): Promise<void> {
   try {
@@ -196,9 +198,8 @@ export async function closeServer(server: Server): Promise<void> {
 }
 
 /**
- * Safely closes a client connection with error handling
- * @param client The MCP client instance to close
- * @returns A promise that resolves when the client is closed
+ * Closes a client connection
+ * @param client The MCP client to close
  */
 export async function closeClient(client: Client): Promise<void> {
   try {
