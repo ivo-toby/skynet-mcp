@@ -6,3 +6,4 @@
  */
 
 export * from './simple-agent.js';
+export * from './llm-agent.js';

@@ -41,9 +41,9 @@ export interface ToolResponse {
  * Simple Agent class that can process prompts using MCP tools
  */
 export class SimpleAgent {
-  private config: SimpleAgentConfig;
+  protected config: SimpleAgentConfig;
   private clients: Map<string, Client> = new Map();
-  private availableTools: Map<string, Set<string>> = new Map();
+  protected availableTools: Map<string, Set<string>> = new Map();
   private connected: boolean = false;
 
   /**
@@ -168,7 +168,7 @@ export class SimpleAgent {
   /**
    * Call a tool if it's available on any connected server
    */
-  private async callToolIfAvailable(
+  protected async callToolIfAvailable(
     toolName: string,
     args: Record<string, unknown>,
   ): Promise<ToolResponse | null> {

@@ -8,6 +8,21 @@ Skynet-MCP is an advanced architecture that implements the Model Context Protoco
 
 This architecture enables recursive agent networks capable of decomposing complex tasks, parallelizing work, and integrating specialized capabilities across multiple models and services.
 
+## Features
+
+- **Dual-Mode Operation**: Acts as both MCP server and client
+- **LLM Integration**: Connect to OpenAI or Anthropic models for intelligent decision-making
+- **Tool Discovery**: Automatically discover and use tools from connected MCP servers
+- **Hierarchical Agent Management**: Create and manage child agents
+- **Configurable**: Flexible configuration system supporting multiple environments
+
+## Agent Types
+
+Skynet-MCP supports multiple agent types:
+
+1. **SimpleAgent**: A basic agent that can connect to MCP servers and use tools.
+2. **LlmAgent**: An intelligent agent that uses LangChain and LLMs to understand natural language and decide which tools to use.
+
 ## Project Structure
 
 ```
@@ -33,6 +48,7 @@ skynet-mcp/
 - Node.js (v20+)
 - npm
 - Docker and Docker Compose (optional, for containerized development)
+- API keys for OpenAI or Anthropic (for LLM-powered agents)
 
 ### Setup
 
@@ -54,6 +70,13 @@ skynet-mcp/
 - `npm run lint:fix` - Lint and fix the code
 - `npm run format` - Format the code
 - `npm run dev` - Run TypeScript in watch mode
+- `npm start` - Start the application
+
+#### Demo Commands
+
+- `npm run demo:simple` - Run the simple agent demo
+- `npm run demo:llm` - Run the LLM-powered agent demo (requires API keys)
+- `npm run demo:web` - Open the web-based agent demo
 
 #### Docker Commands
 
@@ -62,6 +85,43 @@ skynet-mcp/
 - `npm run docker:down` - Stop Docker Compose services
 - `npm run docker:test` - Run tests inside the Docker container
 - `npm run test:docker` - Run Docker-specific tests (requires Docker running)
+
+## Using the LLM Agent
+
+The LLM Agent combines MCP tool usage with large language models for intelligent decision-making:
+
+```typescript
+import { LlmAgent, LlmProviderType } from 'skynet-mcp';
+
+// Configure the agent
+const agent = new LlmAgent({
+  toolServers: [
+    {
+      name: 'calculator',
+      url: 'http://localhost:3000/mcp',
+    },
+  ],
+  maxToolCalls: 5,
+  model: {
+    provider: LlmProviderType.OPENAI, // or ANTHROPIC
+    modelName: 'gpt-4o', // or 'claude-3-opus-20240229'
+    apiKey: process.env.OPENAI_API_KEY,
+    temperature: 0.7,
+  },
+  systemPrompt: 'You are a helpful AI assistant that uses tools when appropriate.',
+  verbose: true,
+});
+
+// Initialize the agent
+await agent.initialize();
+
+// Process a prompt
+const result = await agent.processPrompt('What is 5 + 3?');
+console.log(result);
+
+// Shutdown when done
+await agent.shutdown();
+```
 
 ## Docker Support
 
@@ -111,6 +171,8 @@ Key environment variables include:
 - `LOG_LEVEL` - Logging level (debug, info, warn, error)
 - `PERSISTENCE_TYPE` - Storage type (memory or redis)
 - `REDIS_URL` - Redis connection URL (when using Redis)
+- `OPENAI_API_KEY` - OpenAI API key (for LLM-powered agents)
+- `ANTHROPIC_API_KEY` - Anthropic API key (for LLM-powered agents)
 
 ## CI/CD
 
