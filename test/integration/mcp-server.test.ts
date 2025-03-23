@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import { Server } from '@modelcontextprotocol/sdk';
+import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/dist/esm/types.js';
+import { Server } from '@modelcontextprotocol/sdk/dist/esm/server/index.js';
 import { McpServer } from '../../src/server/mcp-server.js';
 
 // Mock the SDK Server
