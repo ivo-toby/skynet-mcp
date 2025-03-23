@@ -27,7 +27,7 @@ export async function startHttpServer(port = DEFAULT_PORT) {
     version: '1.0.0',
     capabilities: {
       description: 'Skynet-MCP Agent Orchestration Server',
-      tools: true,  // Enable tools capability
+      tools: true, // Enable tools capability
     },
   });
 
@@ -60,10 +60,10 @@ export async function startHttpServer(port = DEFAULT_PORT) {
     },
     async (args) => {
       console.log('Spawning agent with args:', JSON.stringify(args, null, 2));
-      
+
       // For now, just return a mock response with the agent ID
       const agentId = `agent-${Math.floor(Math.random() * 1000000).toString(16)}`;
-      
+
       return {
         content: [
           {
@@ -75,7 +75,7 @@ export async function startHttpServer(port = DEFAULT_PORT) {
           agentId,
         },
       };
-    }
+    },
   );
 
   mcpServer.registerTool(
@@ -90,7 +90,7 @@ export async function startHttpServer(port = DEFAULT_PORT) {
     },
     async (args) => {
       console.log('Getting status for agent:', args.agentId);
-      
+
       // Mock response
       return {
         content: [
@@ -105,7 +105,7 @@ export async function startHttpServer(port = DEFAULT_PORT) {
           runningTime: 10.5,
         },
       };
-    }
+    },
   );
 
   mcpServer.registerTool(
@@ -120,7 +120,7 @@ export async function startHttpServer(port = DEFAULT_PORT) {
     },
     async (args) => {
       console.log('Getting results for agent:', args.agentId);
-      
+
       // Mock response
       return {
         content: [
@@ -130,16 +130,16 @@ export async function startHttpServer(port = DEFAULT_PORT) {
           },
         ],
       };
-    }
+    },
   );
 
   // Set up endpoint for /mcp as SSE connection
-  app.get('/mcp', (req, res) => {
+  app.get('/sse', (req, res) => {
     // Set up SSE headers
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
+      Connection: 'keep-alive',
     });
 
     // Function to send SSE events
@@ -152,7 +152,7 @@ export async function startHttpServer(port = DEFAULT_PORT) {
     mcpServer.setupHttpSSE(sseSend);
 
     // Send initial handshake (this is already done in setupHttpSSE)
-    
+
     // Handle client disconnect
     req.on('close', () => {
       console.log('Client disconnected from SSE');
@@ -160,13 +160,13 @@ export async function startHttpServer(port = DEFAULT_PORT) {
   });
 
   // Handle JSON-RPC requests to /mcp
-  app.post('/mcp', async (req, res) => {
+  app.post('/sse', async (req, res) => {
     try {
       console.log('Received MCP request:', JSON.stringify(req.body));
-      
+
       // Process the message
       await mcpServer.handleClientMessage(req.body);
-      
+
       // We don't respond directly here because responses are sent via SSE
       res.status(202).end();
     } catch (error) {
@@ -198,3 +198,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exit(1);
   });
 }
+

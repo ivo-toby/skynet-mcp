@@ -165,6 +165,8 @@ async function runExample() {
 }
 
 // Run the example if this file is executed directly
-if (require.main === module) {
+// Using ESM style detection instead of CommonJS
+const isMainModule = import.meta.url === `file://${process.argv[1]}`;
+if (isMainModule) {
   runExample().catch(console.error);
 }
