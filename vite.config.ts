@@ -6,8 +6,15 @@ export default defineConfig({
     environment: 'node',
   },
   resolve: {
-    alias: {
-      '@modelcontextprotocol/sdk': '@modelcontextprotocol/sdk/dist/esm'
-    }
+    alias: [
+      {
+        find: '@modelcontextprotocol/sdk',
+        replacement: './node_modules/@modelcontextprotocol/sdk/dist/esm'
+      },
+      {
+        find: /^@modelcontextprotocol\/sdk\/(.*)$/,
+        replacement: './node_modules/@modelcontextprotocol/sdk/dist/esm/$1'
+      }
+    ]
   }
 });
