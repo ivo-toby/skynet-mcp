@@ -18,7 +18,7 @@
     "docker:up": "docker-compose up",
     "docker:down": "docker-compose down",
     "docker:test": "docker-compose run --rm app npm test",
-    "start": "node dist/src/index.js",
+    "start": "node dist/bundle.js",
     "demo:simple": "node dist/examples/simple-agent-demo.js",
     "demo:llm": "node dist/examples/llm-agent-demo.js",
     "demo:web": "open examples/agent-demo.html",
