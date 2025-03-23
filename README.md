@@ -1,6 +1,13 @@
 # Skynet-MCP (THIS PROJECT IS A WORK IN PROGRESS)
 
-A hierarchical network of AI agents using the Model Context Protocol (MCP).
+A hierarchical network of AI agents using the Model Context Protocol (MCP). The AI Agents in this network can spawn new agents to have them do work, each agent also includes all the tools that the initiating agent has.
+The network of agents are capable of working through complex tasks, ranging from research, reporting, to coding.
+
+By leveraging the growing collection of MCP-servers available each of the agents potentially have a large set of tools at their disposal to do all kinds of tasks.
+
+## Want to help?
+
+If you like this idea and are proficient in TypeScript; I can use your help! Please reach out if you like to contribute.
 
 ## Overview
 
