@@ -4,13 +4,13 @@
  * This class provides a complete implementation of the Model Context Protocol server
  * interface, handling tool registration/discovery, authentication, and SSE transport.
  */
-import { Server } from '@modelcontextprotocol/sdk';
+import { Server } from '@modelcontextprotocol/sdk/dist/esm/server/index.js';
 import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
   ErrorCode,
   McpError,
-} from '@modelcontextprotocol/sdk/types.js';
+} from '@modelcontextprotocol/sdk/dist/esm/types.js';
 
 /**
  * Type for SSE send function
