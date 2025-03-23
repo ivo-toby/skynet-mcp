@@ -15,6 +15,25 @@ This architecture enables recursive agent networks capable of decomposing comple
 - **Tool Discovery**: Automatically discover and use tools from connected MCP servers
 - **Hierarchical Agent Management**: Create and manage child agents
 - **Configurable**: Flexible configuration system supporting multiple environments
+- **FastMCP Integration**: Built on the efficient FastMCP framework for robust MCP server implementations
+- **Multiple Transport Options**: Supports both STDIO and SSE (Server-Sent Events) transport
+- **Delayed Execution**: Run tasks asynchronously and poll for results later
+
+## MCP Tools
+
+Skynet-MCP provides the following MCP tools through its FastMCP implementation:
+
+1. **Invoke**: Creates and manages agent tasks
+   - Parameters:
+     - `mcpConfig`: MCP server configuration (available tools for the agent)
+     - `llmConfig`: LLM configuration (provider and model to use)
+     - `prompt`: Instructions for the agent task
+     - `delayedExecution`: Boolean indicating if the task should be run asynchronously
+
+2. **DelayedResponse**: Retrieves the result of asynchronous tasks
+   - Parameters:
+     - `taskId`: The ID of the task to check
+   - Returns: Task status and result (if completed)
 
 ## Agent Types
 
@@ -85,6 +104,68 @@ skynet-mcp/
 - `npm run docker:down` - Stop Docker Compose services
 - `npm run docker:test` - Run tests inside the Docker container
 - `npm run test:docker` - Run Docker-specific tests (requires Docker running)
+
+## Using the FastMCP Server
+
+Skynet-MCP uses FastMCP to implement its MCP server. Here's how to start a server and interact with it:
+
+```typescript
+import { startMcpServer } from 'skynet-mcp';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
+
+// Start the MCP server with SSE transport
+const { server, stop } = await startMcpServer({
+  name: 'Skynet-MCP',
+  version: '1.0.0',
+  port: 3000,
+  transport: 'sse' // or 'stdio' for direct input/output
+});
+
+// Create an MCP client to connect to the server
+const client = new Client(
+  { name: 'example-client', version: '1.0.0' },
+  { capabilities: {} }
+);
+
+// Connect to the server
+const transport = new SSEClientTransport(
+  new URL('http://localhost:3000/sse')
+);
+await client.connect(transport);
+
+// Use the Invoke tool to create an agent task
+const result = await client.callTool({
+  name: 'Invoke',
+  arguments: {
+    mcpConfig: {
+      tools: ['search', 'memory']
+    },
+    llmConfig: {
+      provider: 'openai',
+      model: 'gpt-4o'
+    },
+    prompt: 'Research the benefits of quantum computing',
+    delayedExecution: true
+  }
+});
+
+// Parse the task ID from the response
+const taskInfo = JSON.parse(result.content[0].text);
+console.log('Task started:', taskInfo);
+
+// Check the task status later
+const statusResult = await client.callTool({
+  name: 'DelayedResponse',
+  arguments: {
+    taskId: taskInfo.taskId
+  }
+});
+
+// Clean up
+await client.close();
+await stop();
+```
 
 ## Using the LLM Agent
 
