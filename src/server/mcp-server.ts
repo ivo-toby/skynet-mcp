@@ -7,7 +7,6 @@
 import { FastMCP, UserError } from 'fastmcp';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
-import http from 'http';
 
 // Store for delayed execution tasks
 interface DelayedTask {

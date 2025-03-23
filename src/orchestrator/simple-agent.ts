@@ -7,8 +7,6 @@
  * 3. Use available tools to complete the task
  */
 
-import { v4 as uuidv4 } from 'uuid';
-
 /**
  * Configuration for a tool server
  */
