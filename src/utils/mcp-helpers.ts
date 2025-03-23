@@ -75,6 +75,11 @@ export function checkSdkVersionCompatibility(
   currentVersion: string,
   requiredVersion: string,
 ): boolean {
+  // Validate inputs first
+  if (!currentVersion || !requiredVersion) {
+    return false;
+  }
+
   // Parse versions
   let currentParts: number[];
   let requiredParts: number[];
@@ -83,19 +88,20 @@ export function checkSdkVersionCompatibility(
     currentParts = currentVersion.split('.').map(Number);
     requiredParts = requiredVersion.split('.').map(Number);
 
-    // Ensure we have full semver (major.minor.patch)
-    if (currentParts.length !== 3 || requiredParts.length !== 3) {
-      console.error('Invalid version format. Expected format: x.y.z');
+    // Check for NaN values or incomplete version strings
+    if (currentParts.some(isNaN) || requiredParts.some(isNaN)) {
+      return false;
+    }
+    
+    // Special case for incomplete versions (like '1.7')
+    if (currentVersion.split('.').length < 3 || requiredVersion.split('.').length < 3) {
       return false;
     }
 
-    // Check for NaN
-    if (currentParts.some(isNaN) || requiredParts.some(isNaN)) {
-      console.error('Invalid version format. Expected format: x.y.z');
-      return false;
-    }
+    // Pad with zeros if needed
+    while (currentParts.length < 3) currentParts.push(0);
+    while (requiredParts.length < 3) requiredParts.push(0);
   } catch (error) {
-    console.error('Invalid version format. Expected format: x.y.z');
     return false;
   }
 

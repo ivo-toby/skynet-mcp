@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "node build.js && chmod +x bin/mcp-server.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -21,7 +21,9 @@
     "start": "node dist/src/index.js",
     "demo:simple": "node dist/examples/simple-agent-demo.js",
     "demo:llm": "node dist/examples/llm-agent-demo.js",
-    "demo:web": "open examples/agent-demo.html"
+    "demo:web": "open examples/agent-demo.html",
+    "inspect": "node -r dotenv/config ./scripts/inspect.js",
+    "inspect-watch": "node ./scripts/inspect-watch.js"
   },
   "repository": {
     "type": "git",
@@ -35,6 +37,7 @@
   },
   "homepage": "https://github.com/ivo-toby/skynet-mcp#readme",
   "devDependencies": {
+    "esbuild": "^0.25.1",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.13.10",

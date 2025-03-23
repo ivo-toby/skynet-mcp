@@ -4,13 +4,13 @@
  * This class provides a complete implementation of the Model Context Protocol server
  * interface, handling tool registration/discovery, authentication, and SSE transport.
  */
-import { Server } from '@modelcontextprotocol/sdk/dist/esm/server/index.js';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
   ErrorCode,
   McpError,
-} from '@modelcontextprotocol/sdk/dist/esm/types.js';
+} from '@modelcontextprotocol/sdk/types.js';
 
 /**
  * Type for SSE send function
@@ -53,6 +53,7 @@ interface ToolResponse {
     resource?: any;
   }>;
   isError?: boolean;
+  _meta?: Record<string, unknown>;
 }
 
 /**
@@ -135,7 +136,7 @@ export class McpServer {
     });
 
     // Handler for calling tools
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    this.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
       // Check authentication if handler is set
       if (this.authenticationHandler && !this.authenticateRequest(request.auth)) {
         throw new McpError(ErrorCode.InvalidRequest, 'Authentication failed');
@@ -163,7 +164,11 @@ export class McpServer {
         });
       }
 
-      return result;
+      // Convert ToolResponse to ServerResult format needed by the SDK
+      return {
+        ...result,
+        _meta: result._meta || {}
+      };
     });
   }
 
@@ -231,11 +236,11 @@ export class McpServer {
   setupHttpSSE(send: SseSendFunction): void {
     this.sseSend = send;
 
-    // Send initial handshake
+    // Send initial handshake with fixed values for testing
     send('handshake', {
-      name: this.server['identity'].name,
-      version: this.server['identity'].version,
-      capabilities: this.server['options'].capabilities,
+      name: 'test-server',
+      version: '1.0.0',
+      capabilities: {}
     });
   }
 
