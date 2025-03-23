@@ -4,7 +4,7 @@ import { Server } from '@modelcontextprotocol/sdk/dist/esm/server/index.js';
 import { McpServer } from '../../src/server/mcp-server.js';
 
 // Mock the SDK Server
-vi.mock('@modelcontextprotocol/sdk', () => {
+vi.mock('@modelcontextprotocol/sdk/dist/esm/server/index.js', () => {
   return {
     Server: vi.fn().mockImplementation(() => ({
       connect: vi.fn().mockResolvedValue(undefined),
