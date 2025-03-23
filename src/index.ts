@@ -7,7 +7,6 @@
 // Export key components
 export * from './orchestrator/index.js';
 export * from './server/mcp-server.js';
-export * from './server/http-server.js';
 
 // Export version info
 export const version = '0.1.0';

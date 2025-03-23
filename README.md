@@ -1,4 +1,4 @@
-# Skynet-MCP
+# Skynet-MCP (THIS PROJECT IS A WORK IN PROGRESS)
 
 A hierarchical network of AI agents using the Model Context Protocol (MCP).
 
@@ -24,6 +24,7 @@ This architecture enables recursive agent networks capable of decomposing comple
 Skynet-MCP provides the following MCP tools through its FastMCP implementation:
 
 1. **Invoke**: Creates and manages agent tasks
+
    - Parameters:
      - `mcpConfig`: MCP server configuration (available tools for the agent)
      - `llmConfig`: LLM configuration (provider and model to use)
@@ -35,12 +36,9 @@ Skynet-MCP provides the following MCP tools through its FastMCP implementation:
      - `taskId`: The ID of the task to check
    - Returns: Task status and result (if completed)
 
-## Agent Types
+## Agent
 
-Skynet-MCP supports multiple agent types:
-
-1. **SimpleAgent**: A basic agent that can connect to MCP servers and use tools.
-2. **LlmAgent**: An intelligent agent that uses LangChain and LLMs to understand natural language and decide which tools to use.
+The agent framework still needs to be implemented.
 
 ## Project Structure
 
@@ -91,12 +89,6 @@ skynet-mcp/
 - `npm run dev` - Run TypeScript in watch mode
 - `npm start` - Start the application
 
-#### Demo Commands
-
-- `npm run demo:simple` - Run the simple agent demo
-- `npm run demo:llm` - Run the LLM-powered agent demo (requires API keys)
-- `npm run demo:web` - Open the web-based agent demo
-
 #### Docker Commands
 
 - `npm run docker:build` - Build the Docker image
@@ -104,105 +96,6 @@ skynet-mcp/
 - `npm run docker:down` - Stop Docker Compose services
 - `npm run docker:test` - Run tests inside the Docker container
 - `npm run test:docker` - Run Docker-specific tests (requires Docker running)
-
-## Using the FastMCP Server
-
-Skynet-MCP uses FastMCP to implement its MCP server. Here's how to start a server and interact with it:
-
-```typescript
-import { startMcpServer } from 'skynet-mcp';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
-
-// Start the MCP server with SSE transport
-const { server, stop } = await startMcpServer({
-  name: 'Skynet-MCP',
-  version: '1.0.0',
-  port: 3000,
-  transport: 'sse' // or 'stdio' for direct input/output
-});
-
-// Create an MCP client to connect to the server
-const client = new Client(
-  { name: 'example-client', version: '1.0.0' },
-  { capabilities: {} }
-);
-
-// Connect to the server
-const transport = new SSEClientTransport(
-  new URL('http://localhost:3000/sse')
-);
-await client.connect(transport);
-
-// Use the Invoke tool to create an agent task
-const result = await client.callTool({
-  name: 'Invoke',
-  arguments: {
-    mcpConfig: {
-      tools: ['search', 'memory']
-    },
-    llmConfig: {
-      provider: 'openai',
-      model: 'gpt-4o'
-    },
-    prompt: 'Research the benefits of quantum computing',
-    delayedExecution: true
-  }
-});
-
-// Parse the task ID from the response
-const taskInfo = JSON.parse(result.content[0].text);
-console.log('Task started:', taskInfo);
-
-// Check the task status later
-const statusResult = await client.callTool({
-  name: 'DelayedResponse',
-  arguments: {
-    taskId: taskInfo.taskId
-  }
-});
-
-// Clean up
-await client.close();
-await stop();
-```
-
-## Using the LLM Agent
-
-The LLM Agent combines MCP tool usage with large language models for intelligent decision-making:
-
-```typescript
-import { LlmAgent, LlmProviderType } from 'skynet-mcp';
-
-// Configure the agent
-const agent = new LlmAgent({
-  toolServers: [
-    {
-      name: 'calculator',
-      url: 'http://localhost:3000/mcp',
-    },
-  ],
-  maxToolCalls: 5,
-  model: {
-    provider: LlmProviderType.OPENAI, // or ANTHROPIC
-    modelName: 'gpt-4o', // or 'claude-3-opus-20240229'
-    apiKey: process.env.OPENAI_API_KEY,
-    temperature: 0.7,
-  },
-  systemPrompt: 'You are a helpful AI assistant that uses tools when appropriate.',
-  verbose: true,
-});
-
-// Initialize the agent
-await agent.initialize();
-
-// Process a prompt
-const result = await agent.processPrompt('What is 5 + 3?');
-console.log(result);
-
-// Shutdown when done
-await agent.shutdown();
-```
 
 ## Docker Support
 

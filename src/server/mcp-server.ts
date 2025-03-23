@@ -1,461 +1,276 @@
 /**
- * Implementation of the MCP Server Layer for Skynet-MCP
- * 
- * This class provides a complete implementation of the Model Context Protocol server
- * interface, handling tool registration/discovery, authentication, and SSE transport.
+ * Implementation of the MCP Server Layer for Skynet-MCP using FastMCP
+ *
+ * This file implements an MCP server using the FastMCP framework to handle
+ * agent-based operations, allowing for both STDIO and SSE transport.
  */
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import {
-  ListToolsRequestSchema,
-  CallToolRequestSchema,
-  ErrorCode,
-  McpError,
-} from '@modelcontextprotocol/sdk/types.js';
+import { FastMCP, UserError } from 'fastmcp';
+import { z } from 'zod';
+import { v4 as uuidv4 } from 'uuid';
+import http from 'http';
 
-/**
- * Type for SSE send function
- */
-type SseSendFunction = (event: string, data: unknown) => void;
-
-/**
- * Type for tool handler function
- */
-type ToolHandler = (args: Record<string, any>) => Promise<ToolResponse>;
-
-/**
- * Type for authentication handler function
- */
-type AuthenticationHandler = (token: string) => boolean;
-
-/**
- * Type for authorization handler function
- */
-type AuthorizationHandler = (token: string, toolName: string) => boolean;
-
-/**
- * Interface for tool definition
- */
-interface Tool {
-  name: string;
-  description: string;
-  inputSchema: Record<string, any>;
-  handler: ToolHandler;
+// Store for delayed execution tasks
+interface DelayedTask {
+  taskId: string;
+  status: 'in-progress' | 'completed' | 'error';
+  response?: unknown;
+  error?: string;
 }
 
-/**
- * Interface for tool response
- */
-interface ToolResponse {
-  content: Array<{
-    type: string;
-    text?: string;
-    blob?: string;
-    resource?: any;
-  }>;
-  isError?: boolean;
-  _meta?: Record<string, unknown>;
-}
+// Map to store delayed execution tasks
+const delayedTasks = new Map<string, DelayedTask>();
 
 /**
- * Interface for server configuration
+ * Creates and configures a FastMCP server instance
+ *
+ * @param name Server name
+ * @param version Server version
+ * @returns Configured FastMCP instance
  */
-interface McpServerConfig {
-  name: string;
-  version: string;
-  capabilities?: Record<string, any>;
-}
+export function createMcpServer(name: string, version: `${number}.${number}.${number}`): FastMCP {
+  // Create the server
+  const server = new FastMCP({
+    name,
+    version,
+  });
 
-/**
- * MCP Server implementation for Skynet-MCP
- * 
- * Provides a complete implementation of the Model Context Protocol server
- * interface with support for tool registration, authentication, and SSE transport.
- */
-export class McpServer {
-  private server: Server;
-  private tools: Map<string, Tool> = new Map();
-  private sseSend: SseSendFunction | null = null;
-  private authenticationHandler: AuthenticationHandler | null = null;
-  private authorizationHandler: AuthorizationHandler | null = null;
+  // Add the Invoke tool for spawning agent tasks
+  server.addTool({
+    name: 'Invoke',
+    description: "Invoke the MCP-server's Agent implementation to handle a task",
+    parameters: z.object({
+      mcpConfig: z.record(z.any()).describe('MCP-server config, tools for the agent to use'),
+      llmConfig: z
+        .object({
+          provider: z.string().describe('The LLM provider to use'),
+          model: z.string().describe('The specific model to use'),
+        })
+        .describe('Configuration for the LLM to use'),
+      prompt: z.string().describe('Instructions for the agent'),
+      delayedExecution: z
+        .boolean()
+        .optional()
+        .describe('If true, returns a taskId and processes asynchronously'),
+    }),
+    execute: async (args) => {
+      const { mcpConfig, llmConfig, prompt, delayedExecution = false } = args;
 
-  /**
-   * Create a new MCP Server
-   * 
-   * @param config Server configuration
-   */
-  constructor(config: McpServerConfig) {
-    // Initialize the server with metadata
-    this.server = new Server(
-      {
-        name: config.name,
-        version: config.version,
-      },
-      {
-        capabilities: config.capabilities || {
-          tools: {},
-        },
-      }
-    );
+      // If delayed execution is requested, create a task and return the ID immediately
+      if (delayedExecution) {
+        const taskId = uuidv4();
 
-    // Set up error handling
-    this.server.onerror = (error) => this.handleError(error);
-
-    // Set up request handlers
-    this.setupRequestHandlers();
-  }
-
-  /**
-   * Set up the request handlers for the server
-   */
-  setupRequestHandlers(): void {
-    // Handler for listing available tools
-    this.server.setRequestHandler(ListToolsRequestSchema, async (request) => {
-      // Check authentication if handler is set
-      if (this.authenticationHandler && !this.authenticateRequest(request.auth)) {
-        throw new McpError(ErrorCode.InvalidRequest, 'Authentication failed');
-      }
-
-      const tools = Array.from(this.tools.values()).map(tool => ({
-        name: tool.name,
-        description: tool.description,
-        inputSchema: tool.inputSchema,
-      }));
-
-      const response = { tools };
-
-      // If we're using SSE, manually send the response
-      if (this.sseSend) {
-        this.sseSend('response', {
-          jsonrpc: '2.0',
-          id: request.id,
-          result: response,
+        // Store the task
+        delayedTasks.set(taskId, {
+          taskId,
+          status: 'in-progress',
         });
+
+        // Process the agent task asynchronously
+        processAgentTask(taskId, mcpConfig, llmConfig, prompt).catch((error) => {
+          console.error(`Error processing agent task ${taskId}:`, error);
+          delayedTasks.set(taskId, {
+            taskId,
+            status: 'error',
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+
+        // Return the task ID immediately
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({ taskId, status: 'in-progress' }),
+            },
+          ],
+        };
       }
 
-      return response;
-    });
-
-    // Handler for calling tools
-    this.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
-      // Check authentication if handler is set
-      if (this.authenticationHandler && !this.authenticateRequest(request.auth)) {
-        throw new McpError(ErrorCode.InvalidRequest, 'Authentication failed');
-      }
-
-      // Check authorization if handler is set
-      if (
-        this.authorizationHandler && 
-        !this.authorizeToolAccess(request.auth, request.params.name)
-      ) {
-        throw new McpError(
-          ErrorCode.InvalidRequest, 
-          `Not authorized to access tool: ${request.params.name}`
+      // For synchronous execution, process the task and wait for the result
+      try {
+        const result = await executeSkynetAgent(mcpConfig, llmConfig, prompt);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result),
+            },
+          ],
+        };
+      } catch (error) {
+        console.error('Error executing agent task:', error);
+        throw new UserError(
+          `Failed to execute agent: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
+    },
+  });
 
-      const result = await this.executeToolHandler(request.params);
+  // Add the DelayedResponse tool for checking task status
+  server.addTool({
+    name: 'DelayedResponse',
+    description: 'Check the status of a delayed agent task or retrieve its result',
+    parameters: z.object({
+      taskId: z.string().describe('The ID of the task to check'),
+    }),
+    execute: async (args) => {
+      const { taskId } = args;
 
-      // If we're using SSE, manually send the response
-      if (this.sseSend) {
-        this.sseSend('response', {
-          jsonrpc: '2.0',
-          id: request.id,
-          result,
-        });
+      // Check if the task exists
+      const task = delayedTasks.get(taskId);
+      if (!task) {
+        throw new UserError(`Task with ID ${taskId} not found`);
       }
 
-      // Convert ToolResponse to ServerResult format needed by the SDK
-      return {
-        ...result,
-        _meta: result._meta || {}
-      };
-    });
-  }
-
-  /**
-   * Register a tool with the server
-   * 
-   * @param name Tool name
-   * @param description Tool description
-   * @param inputSchema JSON Schema for the tool's parameters
-   * @param handler Function to execute when the tool is called
-   */
-  registerTool(
-    name: string,
-    description: string,
-    inputSchema: Record<string, any>,
-    handler: ToolHandler
-  ): void {
-    // Check if tool already exists
-    if (this.tools.has(name)) {
-      throw new Error(`Tool with name ${name} already exists`);
-    }
-
-    // Register the tool
-    this.tools.set(name, {
-      name,
-      description,
-      inputSchema,
-      handler,
-    });
-  }
-
-  /**
-   * Set the authentication handler
-   * 
-   * @param handler Function to authenticate requests
-   */
-  setAuthenticationHandler(handler: AuthenticationHandler): void {
-    this.authenticationHandler = handler;
-  }
-
-  /**
-   * Set the authorization handler
-   * 
-   * @param handler Function to authorize tool access
-   */
-  setAuthorizationHandler(handler: AuthorizationHandler): void {
-    this.authorizationHandler = handler;
-  }
-
-  /**
-   * Connect the server with a transport
-   * 
-   * @param transport The transport to use
-   */
-  async connectWithTransport(transport: any): Promise<void> {
-    await this.server.connect(transport);
-    console.log('MCP server connected with transport');
-  }
-
-  /**
-   * Set up HTTP SSE transport for the server
-   * 
-   * @param send Function to send SSE events to the client
-   */
-  setupHttpSSE(send: SseSendFunction): void {
-    this.sseSend = send;
-
-    // Send initial handshake with fixed values for testing
-    send('handshake', {
-      name: 'test-server',
-      version: '1.0.0',
-      capabilities: {}
-    });
-  }
-
-  /**
-   * Handle a message from the client
-   * 
-   * @param message The message received from the client
-   */
-  async handleClientMessage(message: unknown): Promise<void> {
-    try {
-      if (
-        typeof message === 'object' &&
-        message !== null &&
-        'method' in message &&
-        'id' in message
-      ) {
-        const typedMessage = message as { 
-          method: string; 
-          id: string | number; 
-          params?: unknown;
-          auth?: string;
+      // Return the current status
+      if (task.status === 'in-progress') {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({ taskId, status: 'in-progress' }),
+            },
+          ],
         };
-
-        if (typedMessage.method === 'listTools') {
-          // Check authentication if handler is set
-          if (this.authenticationHandler && !this.authenticateRequest(typedMessage.auth)) {
-            this.sendErrorResponse(typedMessage.id, ErrorCode.InvalidRequest, 'Authentication failed');
-            return;
-          }
-
-          const tools = Array.from(this.tools.values()).map(tool => ({
-            name: tool.name,
-            description: tool.description,
-            inputSchema: tool.inputSchema,
-          }));
-
-          if (this.sseSend) {
-            this.sseSend('response', {
-              jsonrpc: '2.0',
-              id: typedMessage.id,
-              result: { tools },
-            });
-          }
-        } else if (typedMessage.method === 'callTool') {
-          const params = typedMessage.params as {
-            name: string;
-            arguments: Record<string, any>;
-          };
-
-          // Check authentication if handler is set
-          if (this.authenticationHandler && !this.authenticateRequest(typedMessage.auth)) {
-            this.sendErrorResponse(typedMessage.id, ErrorCode.InvalidRequest, 'Authentication failed');
-            return;
-          }
-
-          // Check authorization if handler is set
-          if (
-            this.authorizationHandler && 
-            !this.authorizeToolAccess(typedMessage.auth, params.name)
-          ) {
-            this.sendErrorResponse(
-              typedMessage.id, 
-              ErrorCode.InvalidRequest, 
-              `Not authorized to access tool: ${params.name}`
-            );
-            return;
-          }
-
-          try {
-            const result = await this.executeToolHandler(params);
-
-            if (this.sseSend) {
-              this.sseSend('response', {
-                jsonrpc: '2.0',
-                id: typedMessage.id,
-                result,
-              });
-            }
-          } catch (error) {
-            if (error instanceof McpError) {
-              this.sendErrorResponse(typedMessage.id, error.code, error.message);
-            } else {
-              this.sendErrorResponse(
-                typedMessage.id, 
-                ErrorCode.InternalError, 
-                `Error executing tool: ${error instanceof Error ? error.message : String(error)}`
-              );
-            }
-          }
-        } else {
-          // Unknown method
-          this.sendErrorResponse(
-            typedMessage.id, 
-            ErrorCode.MethodNotFound, 
-            `Method not found: ${typedMessage.method}`
-          );
-        }
+      } else if (task.status === 'error') {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                taskId,
+                status: 'error',
+                error: task.error,
+              }),
+            },
+          ],
+          isError: true,
+        };
+      } else {
+        // Task is completed, return the result
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                taskId,
+                status: 'completed',
+                result: task.response,
+              }),
+            },
+          ],
+        };
       }
-    } catch (error) {
-      console.error('Error handling client message:', error);
+    },
+  });
 
-      if (this.sseSend) {
-        this.sseSend('error', {
-          message: 'Failed to process request',
-          error: String(error),
-        });
-      }
-    }
+  return server;
+}
+
+/**
+ * Processes an agent task asynchronously
+ *
+ * @param taskId Unique task identifier
+ * @param mcpConfig MCP server configuration
+ * @param llmConfig LLM configuration
+ * @param prompt Task instructions
+ */
+async function processAgentTask(
+  taskId: string,
+  mcpConfig: Record<string, unknown>,
+  llmConfig: { provider: string; model: string },
+  prompt: string,
+): Promise<void> {
+  try {
+    const result = await executeSkynetAgent(mcpConfig, llmConfig, prompt);
+
+    // Update task with completed status and result
+    delayedTasks.set(taskId, {
+      taskId,
+      status: 'completed',
+      response: result,
+    });
+  } catch (error) {
+    // Update task with error status
+    delayedTasks.set(taskId, {
+      taskId,
+      status: 'error',
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
+}
 
-  /**
-   * Send an error response to the client
-   * 
-   * @param id Request ID
-   * @param code Error code
-   * @param message Error message
-   */
-  private sendErrorResponse(id: string | number, code: number, message: string): void {
-    if (this.sseSend) {
-      this.sseSend('response', {
-        jsonrpc: '2.0',
-        id,
-        error: {
-          code,
-          message,
-        },
-      });
-    }
-  }
+/**
+ * Executes a Skynet agent with the given configuration
+ *
+ * @param mcpConfig MCP server configuration
+ * @param llmConfig LLM configuration
+ * @param prompt Task instructions
+ * @returns Agent execution result
+ */
+async function executeSkynetAgent(
+  mcpConfig: Record<string, unknown>,
+  llmConfig: { provider: string; model: string },
+  prompt: string,
+): Promise<unknown> {
+  // TODO: Implement the actual agent execution logic
+  // This is a placeholder that simulates processing time
+  // In a real implementation, this would create and run an agent with the provided tools and prompt
 
-  /**
-   * Execute a tool handler
-   * 
-   * @param params Tool parameters
-   * @returns Tool execution result
-   */
-  private async executeToolHandler(params: { name: string; arguments: Record<string, any> }): Promise<ToolResponse> {
-    const { name, arguments: args } = params;
-    
-    // Check if tool exists
-    const tool = this.tools.get(name);
-    if (!tool) {
-      throw new McpError(ErrorCode.MethodNotFound, `Tool not found: ${name}`);
-    }
-    
-    try {
-      // Execute the tool handler
-      return await tool.handler(args);
-    } catch (error) {
-      console.error(`Error executing tool ${name}:`, error);
-      
-      // Return error response
-      return {
-        isError: true,
-        content: [
-          {
-            type: 'text',
-            text: `Error executing tool ${name}: ${error instanceof Error ? error.message : String(error)}`,
-          },
-        ],
-      };
-    }
-  }
+  await new Promise((resolve) => setTimeout(resolve, 2000));
 
-  /**
-   * Authenticate a request
-   * 
-   * @param token Authentication token
-   * @returns Whether the request is authenticated
-   */
-  private authenticateRequest(token?: string): boolean {
-    if (!this.authenticationHandler) {
-      return true;
-    }
-    
-    return this.authenticationHandler(token || '');
-  }
+  return {
+    agentResponse: `Processed agent task with prompt: ${prompt.substring(0, 50)}...`,
+    provider: llmConfig.provider,
+    model: llmConfig.model,
+    timestamp: new Date().toISOString(),
+  };
+}
 
-  /**
-   * Authorize tool access
-   * 
-   * @param token Authentication token
-   * @param toolName Tool name
-   * @returns Whether access is authorized
-   */
-  private authorizeToolAccess(token?: string, toolName?: string): boolean {
-    if (!this.authorizationHandler) {
-      return true;
-    }
-    
-    return this.authorizationHandler(token || '', toolName || '');
-  }
+/**
+ * Starts the MCP server with the specified transport
+ *
+ * @param options Server configuration options
+ * @returns Started server instance
+ */
+export async function startMcpServer(options: {
+  name: string;
+  version: `${number}.${number}.${number}`;
+  port?: number;
+  transport?: 'stdio' | 'sse';
+}): Promise<{
+  server: FastMCP;
+  stop: () => Promise<void>;
+}> {
+  const { name, version, port = 8080, transport = 'sse' } = options;
 
-  /**
-   * Handle server errors
-   * 
-   * @param error The error to handle
-   */
-  private handleError(error: unknown): void {
-    console.error('[MCP Server Error]', error);
-    
-    if (this.sseSend) {
-      this.sseSend('error', {
-        message: 'Server error',
-        error: String(error),
-      });
-    }
-  }
+  // Create the MCP server
+  const server = createMcpServer(name, version);
 
-  /**
-   * Stop the server
-   */
-  async stop(): Promise<void> {
-    await this.server.close();
-    this.sseSend = null;
-    console.log('MCP server stopped');
+  // Start the server with the specified transport
+  if (transport === 'stdio') {
+    // Use STDIO transport
+    await server.start({ transportType: 'stdio' });
+
+    return {
+      server,
+      stop: async () => {
+        await server.stop();
+      },
+    };
+  } else {
+    // Use SSE transport
+    // Create Express app and HTTP server
+    await server.start({
+      transportType: 'sse',
+      sse: { endpoint: '/sse', port },
+    });
+
+    return {
+      server,
+      stop: async () => {
+        await server.stop();
+      },
+    };
   }
 }
