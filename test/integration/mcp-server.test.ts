@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { McpServer } from '../mcp-server';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { Server } from '@modelcontextprotocol/sdk';
+import { McpServer } from '../../src/server/mcp-server.js';
 
 // Mock the SDK Server
 vi.mock('@modelcontextprotocol/sdk', () => {
@@ -22,12 +22,12 @@ describe('McpServer', () => {
   beforeEach(() => {
     // Reset mocks
     vi.clearAllMocks();
-    
+
     // Create a mock transport
     mockTransport = {
       handlePostMessage: vi.fn(),
     };
-    
+
     // Create a new server instance
     server = new McpServer({
       name: 'test-server',
@@ -48,7 +48,7 @@ describe('McpServer', () => {
       expect(server).toBeDefined();
       expect(Server).toHaveBeenCalledWith(
         { name: 'test-server', version: '1.0.0' },
-        expect.objectContaining({ capabilities: expect.any(Object) })
+        expect.objectContaining({ capabilities: expect.any(Object) }),
       );
     });
 
@@ -77,12 +77,12 @@ describe('McpServer', () => {
         },
         required: ['param1'],
       };
-      
+
       // Register the tool
       server.registerTool(toolName, toolDescription, inputSchema, async () => {
         return { content: [{ type: 'text', text: 'Tool executed' }] };
       });
-      
+
       // Verify the tool was registered
       expect(server['tools'].has(toolName)).toBe(true);
       const tool = server['tools'].get(toolName);
@@ -99,7 +99,7 @@ describe('McpServer', () => {
       server.registerTool('duplicate-tool', 'First tool', { type: 'object' }, async () => {
         return { content: [{ type: 'text', text: 'Tool executed' }] };
       });
-      
+
       // Try to register another tool with the same name
       expect(() => {
         server.registerTool('duplicate-tool', 'Second tool', { type: 'object' }, async () => {
@@ -115,21 +115,26 @@ describe('McpServer', () => {
       const mockHandler = vi.fn().mockResolvedValue({
         content: [{ type: 'text', text: 'Tool executed successfully' }],
       });
-      
+
       // Register the tool
-      server.registerTool('execute-tool', 'Tool to execute', {
-        type: 'object',
-        properties: {
-          param: { type: 'string' },
+      server.registerTool(
+        'execute-tool',
+        'Tool to execute',
+        {
+          type: 'object',
+          properties: {
+            param: { type: 'string' },
+          },
         },
-      }, mockHandler);
-      
+        mockHandler,
+      );
+
       // Execute the tool
       const result = await server['executeToolHandler']({
         name: 'execute-tool',
         arguments: { param: 'test value' },
       });
-      
+
       // Verify the handler was called with the correct parameters
       expect(mockHandler).toHaveBeenCalledWith({ param: 'test value' });
       expect(result).toEqual({
@@ -138,26 +143,35 @@ describe('McpServer', () => {
     });
 
     it('should throw an error when executing a non-existent tool', async () => {
-      await expect(server['executeToolHandler']({
-        name: 'non-existent-tool',
-        arguments: {},
-      })).rejects.toThrow(new McpError(ErrorCode.MethodNotFound, 'Tool not found: non-existent-tool'));
+      await expect(
+        server['executeToolHandler']({
+          name: 'non-existent-tool',
+          arguments: {},
+        }),
+      ).rejects.toThrow(
+        new McpError(ErrorCode.MethodNotFound, 'Tool not found: non-existent-tool'),
+      );
     });
 
     it('should handle errors thrown by tool handlers', async () => {
       // Register a tool that throws an error
-      server.registerTool('error-tool', 'Tool that throws an error', {
-        type: 'object',
-      }, async () => {
-        throw new Error('Tool execution failed');
-      });
-      
+      server.registerTool(
+        'error-tool',
+        'Tool that throws an error',
+        {
+          type: 'object',
+        },
+        async () => {
+          throw new Error('Tool execution failed');
+        },
+      );
+
       // Execute the tool and expect an error response
       const result = await server['executeToolHandler']({
         name: 'error-tool',
         arguments: {},
       });
-      
+
       // Verify the error is properly formatted
       expect(result).toEqual({
         isError: true,
@@ -172,10 +186,10 @@ describe('McpServer', () => {
       server.setAuthenticationHandler((token) => {
         return token === 'valid-token';
       });
-      
+
       // Test with valid token
       expect(server['authenticateRequest']('valid-token')).toBe(true);
-      
+
       // Test with invalid token
       expect(server['authenticateRequest']('invalid-token')).toBe(false);
     });
@@ -185,13 +199,13 @@ describe('McpServer', () => {
       server.setAuthorizationHandler((token, toolName) => {
         return token === 'admin-token' || toolName === 'public-tool';
       });
-      
+
       // Test with admin token
       expect(server['authorizeToolAccess']('admin-token', 'any-tool')).toBe(true);
-      
+
       // Test with regular token and public tool
       expect(server['authorizeToolAccess']('regular-token', 'public-tool')).toBe(true);
-      
+
       // Test with regular token and restricted tool
       expect(server['authorizeToolAccess']('regular-token', 'restricted-tool')).toBe(false);
     });
@@ -201,55 +215,66 @@ describe('McpServer', () => {
     it('should set up HTTP SSE transport correctly', () => {
       const sseSend = vi.fn();
       server.setupHttpSSE(sseSend);
-      
+
       // Verify the SSE send function is stored
       expect(server['sseSend']).toBe(sseSend);
-      
+
       // Verify the handshake is sent
-      expect(sseSend).toHaveBeenCalledWith('handshake', expect.objectContaining({
-        name: 'test-server',
-        version: '1.0.0',
-        capabilities: expect.any(Object),
-      }));
+      expect(sseSend).toHaveBeenCalledWith(
+        'handshake',
+        expect.objectContaining({
+          name: 'test-server',
+          version: '1.0.0',
+          capabilities: expect.any(Object),
+        }),
+      );
     });
 
     it('should handle client messages correctly', async () => {
       const sseSend = vi.fn();
       server.setupHttpSSE(sseSend);
-      
+
       // Register a tool for testing
-      server.registerTool('sse-tool', 'Tool for SSE testing', {
-        type: 'object',
-        properties: {
-          param: { type: 'string' },
+      server.registerTool(
+        'sse-tool',
+        'Tool for SSE testing',
+        {
+          type: 'object',
+          properties: {
+            param: { type: 'string' },
+          },
         },
-      }, async (args) => {
-        return {
-          content: [{ type: 'text', text: `Executed with ${args.param}` }],
-        };
-      });
-      
+        async (args) => {
+          return {
+            content: [{ type: 'text', text: `Executed with ${args.param}` }],
+          };
+        },
+      );
+
       // Simulate a listTools request
       await server.handleClientMessage({
         jsonrpc: '2.0',
         id: '123',
         method: 'listTools',
       });
-      
+
       // Verify the response
-      expect(sseSend).toHaveBeenCalledWith('response', expect.objectContaining({
-        jsonrpc: '2.0',
-        id: '123',
-        result: expect.objectContaining({
-          tools: expect.arrayContaining([
-            expect.objectContaining({
-              name: 'sse-tool',
-              description: 'Tool for SSE testing',
-            }),
-          ]),
+      expect(sseSend).toHaveBeenCalledWith(
+        'response',
+        expect.objectContaining({
+          jsonrpc: '2.0',
+          id: '123',
+          result: expect.objectContaining({
+            tools: expect.arrayContaining([
+              expect.objectContaining({
+                name: 'sse-tool',
+                description: 'Tool for SSE testing',
+              }),
+            ]),
+          }),
         }),
-      }));
-      
+      );
+
       // Simulate a callTool request
       await server.handleClientMessage({
         jsonrpc: '2.0',
@@ -260,15 +285,18 @@ describe('McpServer', () => {
           arguments: { param: 'test' },
         },
       });
-      
+
       // Verify the response
-      expect(sseSend).toHaveBeenCalledWith('response', expect.objectContaining({
-        jsonrpc: '2.0',
-        id: '456',
-        result: expect.objectContaining({
-          content: [{ type: 'text', text: 'Executed with test' }],
+      expect(sseSend).toHaveBeenCalledWith(
+        'response',
+        expect.objectContaining({
+          jsonrpc: '2.0',
+          id: '456',
+          result: expect.objectContaining({
+            content: [{ type: 'text', text: 'Executed with test' }],
+          }),
         }),
-      }));
+      );
     });
   });
 
@@ -276,45 +304,48 @@ describe('McpServer', () => {
     it('should handle invalid JSON-RPC requests', async () => {
       const sseSend = vi.fn();
       server.setupHttpSSE(sseSend);
-      
+
       // Simulate an invalid request
       await server.handleClientMessage({
         jsonrpc: '2.0',
         id: '123',
         method: 'invalidMethod',
       });
-      
+
       // Verify the error response
-      expect(sseSend).toHaveBeenCalledWith('response', expect.objectContaining({
-        jsonrpc: '2.0',
-        id: '123',
-        error: expect.objectContaining({
-          code: ErrorCode.MethodNotFound,
-          message: expect.stringContaining('Method not found'),
+      expect(sseSend).toHaveBeenCalledWith(
+        'response',
+        expect.objectContaining({
+          jsonrpc: '2.0',
+          id: '123',
+          error: expect.objectContaining({
+            code: ErrorCode.MethodNotFound,
+            message: expect.stringContaining('Method not found'),
+          }),
         }),
-      }));
+      );
     });
 
     it('should handle errors during request processing', async () => {
       const sseSend = vi.fn();
       server.setupHttpSSE(sseSend);
-      
+
       // Set up the server to throw an error during processing
       server['server'].setRequestHandler = vi.fn().mockImplementation(() => {
         throw new Error('Processing error');
       });
-      
+
       // Initialize the request handlers
       server.setupRequestHandlers();
-      
+
       // Verify the error handler is set
       expect(server['server'].onerror).toBeDefined();
-      
+
       // Simulate an error
       if (server['server'].onerror) {
         server['server'].onerror(new Error('Test error'));
       }
-      
+
       // Verify the error is logged (would need to spy on console.error)
     });
   });
