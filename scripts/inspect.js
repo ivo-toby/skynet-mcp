@@ -10,11 +10,6 @@ const serverPath = resolve(__dirname, '../bin/mcp-server.js');
 
 const args = ['npx', '@modelcontextprotocol/inspector', 'node', serverPath];
 
-// Add environment variables as CLI arguments if they exist
-//if (process.env.CONTENTFUL_MANAGEMENT_ACCESS_TOKEN) {
-//args.push(`--headers=${process.env.CONTENTFUL_MANAGEMENT_ACCESS_TOKEN}`);
-//}
-
 // Execute the command
 import { spawn } from 'child_process';
 const inspect = spawn(args[0], args.slice(1), { stdio: 'inherit' });

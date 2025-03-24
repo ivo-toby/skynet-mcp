@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "mcp-server-contentful": "./bin/mcp-server.js"
+    "mcp-server-skynet": "./bin/mcp-server.js"
   },
   "files": [
     "dist"
@@ -26,9 +26,6 @@
     "docker:down": "docker-compose down",
     "docker:test": "docker-compose run --rm app npm test",
     "start": "node dist/bundle.js",
-    "demo:simple": "node dist/examples/simple-agent-demo.js",
-    "demo:llm": "node dist/examples/llm-agent-demo.js",
-    "demo:web": "open examples/agent-demo.html",
     "inspect": "node -r dotenv/config ./scripts/inspect.js",
     "inspect-watch": "node ./scripts/inspect-watch.js"
   },

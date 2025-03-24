@@ -1,13 +1,22 @@
-# Skynet-MCP (THIS PROJECT IS A WORK IN PROGRESS)
+# Skynet-MCP (WORK IN PROGRESS)
 
 A hierarchical network of AI agents using the Model Context Protocol (MCP). The AI Agents in this network can spawn new agents to have them do work, each agent also includes all the tools that the initiating agent has.
 The network of agents are capable of working through complex tasks, ranging from research, reporting, to coding.
 
 By leveraging the growing collection of MCP-servers available each of the agents potentially have a large set of tools at their disposal to do all kinds of tasks.
 
-## Want to help?
+## Current Development Status
 
-If you like this idea and are proficient in TypeScript; I can use your help! Please reach out if you like to contribute.
+As of March 2025, Skynet-MCP is in active development with the following components completed:
+
+- ✅ Basic project structure and build system
+- ✅ MCP server implementation using FastMCP
+- ✅ Simple agent orchestration framework
+- ✅ Support for both SSE and STDIO transport
+- ✅ Basic Docker containerization
+- ✅ Asynchronous task management
+
+Currently evaluating [Mastra](https://mastra.ai) for implementing dynamic agent workflows.
 
 ## Overview
 
@@ -43,11 +52,7 @@ Skynet-MCP provides the following MCP tools through its FastMCP implementation:
      - `taskId`: The ID of the task to check
    - Returns: Task status and result (if completed)
 
-## Agent
-
-The agent framework still needs to be implemented.
-
-## Project Structure
+## Current Project Structure
 
 ```
 skynet-mcp/
@@ -55,15 +60,27 @@ skynet-mcp/
 │   ├── server/       # MCP server implementation
 │   ├── client/       # MCP client implementation
 │   ├── orchestrator/ # Agent orchestration
-│   ├── tools/        # Agent tools
-│   ├── persistence/  # State management
 │   └── utils/        # Shared utilities
-├── test/
-│   ├── unit/         # Unit tests
-│   └── integration/  # Integration tests
-├── examples/         # Example implementations
-└── config/           # Configuration files
+├── bin/              # Executable scripts
+├── scripts/          # Development utilities
+├── dist/             # Compiled code
+├── docs/             # Documentation
+└── config/           # Configuration files (future use)
 ```
+
+## Development Roadmap
+
+### Current Phase: Core System Development
+
+- Implementing dynamic agent workflows using Mastra
+- Enhancing agent orchestration capabilities
+- Developing more sophisticated task decomposition
+
+### Next Steps
+
+- Implementing persistence layer for agent state
+- Enhancing security features
+- Building advanced monitoring and telemetry
 
 ## Development
 
@@ -81,6 +98,10 @@ skynet-mcp/
    ```
    npm install
    ```
+3. Build the project:
+   ```
+   npm run build
+   ```
 
 ### Available Scripts
 
@@ -95,6 +116,8 @@ skynet-mcp/
 - `npm run format` - Format the code
 - `npm run dev` - Run TypeScript in watch mode
 - `npm start` - Start the application
+- `npm run inspect` - Start the MCP server with the inspector
+- `npm run inspect-watch` - Watch for changes and restart the inspector
 
 #### Docker Commands
 
@@ -108,24 +131,13 @@ skynet-mcp/
 
 Skynet-MCP includes Docker support for containerized development and deployment.
 
-### Dockerfile
-
-The project includes a Dockerfile that:
+The project includes a Dockerfile and docker-compose.yml file that:
 
 - Uses Node.js 20 Alpine as the base image
 - Sets up the application environment
 - Installs dependencies
 - Builds the TypeScript code
-- Exposes port 3000 for the server
-
-### Docker Compose
-
-The docker-compose.yml file provides a complete development environment with:
-
-- The Skynet-MCP application container
-- Redis for state management and persistence
-- Volume mounts for local development
-- Environment variable configuration
+- Exposes port for the server
 
 To start the full environment:
 
@@ -133,43 +145,32 @@ To start the full environment:
 npm run docker:up
 ```
 
-## Configuration System
+## Configuration
 
 Skynet-MCP uses a flexible configuration system that can load settings from:
 
 - Default values
 - Environment variables
-- Environment-specific JSON configuration files
+- Environment-specific JSON configuration files (future use)
 
-Configuration files are stored in the `config/` directory and loaded based on the `NODE_ENV` environment variable.
-
-### Environment Variables
-
-Key environment variables include:
+### Key Environment Variables
 
 - `SERVER_PORT` - Port the server listens on
 - `SERVER_HOST` - Host the server binds to
 - `LOG_LEVEL` - Logging level (debug, info, warn, error)
-- `PERSISTENCE_TYPE` - Storage type (memory or redis)
-- `REDIS_URL` - Redis connection URL (when using Redis)
 - `OPENAI_API_KEY` - OpenAI API key (for LLM-powered agents)
 - `ANTHROPIC_API_KEY` - Anthropic API key (for LLM-powered agents)
 
-## CI/CD
+## Contribution
 
-Skynet-MCP uses GitHub Actions for continuous integration and delivery.
+Contributions are welcome! If you're interested in helping with this project and are proficient in TypeScript, please reach out.
 
-The workflow:
+Current areas where help is needed:
 
-1. Runs on pushes to the main branch and pull requests
-2. Sets up the Node.js environment
-3. Installs dependencies
-4. Runs linting and formatting checks
-5. Builds the project
-6. Runs all tests
-7. Builds and verifies the Docker image
-
-The CI/CD pipeline helps ensure code quality and stability by automatically testing changes before they're merged.
+- Implementation of dynamic agent workflows
+- Building the state management system
+- Creating more sophisticated task decomposition mechanisms
+- Writing tests and documentation
 
 ## License
 
