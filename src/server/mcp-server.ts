@@ -199,6 +199,9 @@ async function processAgentTask(
   }
 }
 
+// Import the Mastra agent execution implementation
+import { executeMastraAgent } from './mastra-integration.js';
+
 /**
  * Executes a Skynet agent with the given configuration
  *
@@ -212,18 +215,21 @@ async function executeSkynetAgent(
   llmConfig: { provider: string; model: string },
   prompt: string,
 ): Promise<unknown> {
-  // TODO: Implement the actual agent execution logic
-  // This is a placeholder that simulates processing time
-  // In a real implementation, this would create and run an agent with the provided tools and prompt
-
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-
-  return {
-    agentResponse: `Processed agent task with prompt: ${prompt.substring(0, 50)}...`,
-    provider: llmConfig.provider,
-    model: llmConfig.model,
-    timestamp: new Date().toISOString(),
-  };
+  // Use our Mastra implementation to handle the agent execution
+  try {
+    return await executeMastraAgent(mcpConfig, llmConfig, prompt);
+  } catch (error) {
+    console.error('Error in executeSkynetAgent:', error);
+    
+    // Provide a fallback response in case of errors
+    return {
+      agentResponse: `Error processing agent task: ${error instanceof Error ? error.message : String(error)}`,
+      provider: llmConfig.provider,
+      model: llmConfig.model,
+      timestamp: new Date().toISOString(),
+      error: true,
+    };
+  }
 }
 
 /**

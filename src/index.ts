@@ -5,7 +5,7 @@
  */
 
 // Export key components
-export * from './orchestrator/index.js';
+export * from './mastra/index.js';
 export * from './server/mcp-server.js';
 
 // Export version info

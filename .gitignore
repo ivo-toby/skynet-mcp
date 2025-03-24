@@ -42,3 +42,4 @@ yarn-error.log*
 ehthumbs.db
 Thumbs.db
 .aider*
+mcp-servers.json
