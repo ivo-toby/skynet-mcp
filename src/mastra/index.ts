@@ -5,7 +5,5 @@
  * allowing AI agents to generate and execute their own workflows based on tasks.
  */
 
-export * from './workflow-manager.js';
-export * from './dynamic-agent.js';
+export * from './dynamic-workflow.js';
 export * from './server-integration.js';
-export * from './types.js';

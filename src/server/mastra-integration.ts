@@ -5,7 +5,7 @@
  * which is called by the MCP server to handle agent tasks using Mastra.
  */
 
-import { LlmProviderType, createLlm, executeDynamicAgent } from '../mastra/server-integration.js';
+import { LlmProviderType, executeDynamicAgent } from '../mastra/server-integration.js';
 
 /**
  * Executes a Skynet agent with the given configuration using Mastra
@@ -50,10 +50,9 @@ export async function executeMastraAgent(
       modelName: llmConfig.model,
       apiKey,
       temperature: 0.7,
-      maxTokens: 1500,
     };
 
-    // Execute the dynamic agent
+    // Execute the dynamic workflow
     const result = await executeDynamicAgent(llmModelConfig, prompt);
     
     return result;

@@ -5,13 +5,12 @@
  * allowing the agent to be invoked through the MCP protocol.
  */
 
-import { openai } from '@ai-sdk/openai';
-import { anthropic } from '@ai-sdk/anthropic';
-import { DynamicAgent } from './dynamic-agent.js';
+import { OpenAI } from '@ai-sdk/openai';
+import { Anthropic } from '@ai-sdk/anthropic';
+import { DynamicWorkflow } from './dynamic-workflow.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { LanguageModel } from './llm-interface.js';
 
 /**
  * LLM provider types supported by the agent
@@ -29,34 +28,6 @@ export interface LlmModelConfig {
   modelName: string;
   apiKey: string;
   temperature?: number;
-  maxTokens?: number;
-}
-
-/**
- * Creates an LLM instance based on the provider and model configuration
- *
- * @param config LLM model configuration
- * @returns Initialized LLM instance
- */
-export function createLlm(config: LlmModelConfig): LanguageModel {
-  const { provider, modelName, apiKey, temperature = 0.7, maxTokens = 1500 } = config;
-
-  // Set the environment API key
-  process.env.OPENAI_API_KEY =
-    provider === LlmProviderType.OPENAI ? apiKey : process.env.OPENAI_API_KEY;
-  process.env.ANTHROPIC_API_KEY =
-    provider === LlmProviderType.ANTHROPIC ? apiKey : process.env.ANTHROPIC_API_KEY;
-
-  switch (provider) {
-    case LlmProviderType.OPENAI: {
-      return openai(modelName) as unknown as LanguageModel;
-    }
-    case LlmProviderType.ANTHROPIC: {
-      return anthropic(modelName) as unknown as LanguageModel;
-    }
-    default:
-      throw new Error(`Unsupported LLM provider: ${provider}`);
-  }
 }
 
 /**
@@ -78,7 +49,7 @@ export async function loadMcpServerConfigs(): Promise<Array<{ name: string; url:
     const config = JSON.parse(configData);
 
     // Return the server configurations
-    return config.servers.map((server: { name: string; url: string }) => ({
+    return config.servers.map((server: any) => ({
       name: server.name,
       url: server.url,
     }));
@@ -89,49 +60,58 @@ export async function loadMcpServerConfigs(): Promise<Array<{ name: string; url:
 }
 
 /**
- * Executes a task using a dynamic agent
+ * Executes a task using a dynamic workflow
  *
  * @param llmConfig LLM configuration
  * @param prompt Task prompt
- * @returns Result of the task execution
+ * @returns Result of the workflow execution
  */
 export async function executeDynamicAgent(
   llmConfig: LlmModelConfig,
   prompt: string,
 ): Promise<unknown> {
   try {
-    // Create the LLM instance
-    const llm = createLlm(llmConfig);
+    // Set the environment API key
+    process.env.OPENAI_API_KEY = llmConfig.provider === LlmProviderType.OPENAI ? llmConfig.apiKey : process.env.OPENAI_API_KEY;
+    process.env.ANTHROPIC_API_KEY = llmConfig.provider === LlmProviderType.ANTHROPIC ? llmConfig.apiKey : process.env.ANTHROPIC_API_KEY;
+
+    // Initialize the LLM based on provider
+    let llm;
+    if (llmConfig.provider === LlmProviderType.OPENAI) {
+      const openai = new OpenAI({ apiKey: llmConfig.apiKey });
+      llm = openai.chat({
+        model: llmConfig.modelName,
+        temperature: llmConfig.temperature || 0.7,
+      });
+    } else if (llmConfig.provider === LlmProviderType.ANTHROPIC) {
+      const anthropic = new Anthropic({ apiKey: llmConfig.apiKey });
+      llm = anthropic.messages({
+        model: llmConfig.modelName,
+        temperature: llmConfig.temperature || 0.7,
+      });
+    } else {
+      throw new Error(`Unsupported LLM provider: ${llmConfig.provider}`);
+    }
 
     // Load MCP server configurations
     const mcpServers = await loadMcpServerConfigs();
 
-    // Create and initialize the dynamic agent
-    const agent = new DynamicAgent({
+    // Create and execute the dynamic workflow
+    const workflow = new DynamicWorkflow({
       llm,
       toolServers: mcpServers,
-      maxToolCalls: 10,
-      maxWorkflowSteps: 10,
-      workflowTimeout: 300000, // 5 minutes
-      maxChildAgents: 3,
     });
 
-    await agent.initialize();
+    // Execute the workflow with the prompt
+    const result = await workflow.execute(prompt);
 
-    try {
-      // Process the prompt
-      const result = await agent.processPrompt(prompt);
-
-      return {
-        agentResponse: result,
-        timestamp: new Date().toISOString(),
-      };
-    } finally {
-      // Make sure to shut down the agent properly
-      await agent.shutdown();
-    }
+    return {
+      agentResponse: result.output,
+      workflowSteps: result.steps,
+      timestamp: new Date().toISOString(),
+    };
   } catch (error) {
-    console.error('Error executing dynamic agent:', error);
+    console.error('Error executing dynamic workflow:', error);
     throw error;
   }
 }
