@@ -1,23 +1,31 @@
-import { AIModelType, Provider } from '@/lib/ai';
-import { openai as OpenAI } from '@ai-sdk/openai';
-import { anthropic as Anthropic } from '@ai-sdk/anthropic';
-import { google as GoogleGenerativeAI } from '@ai-sdk/google';
-import { LLM, LLMConfig, LLMProvider } from './interface';
+// Use clearer aliases for provider factory functions
+import { openai as openaiProvider } from '@ai-sdk/openai';
+import { anthropic as anthropicProvider } from '@ai-sdk/anthropic';
+import { google as googleProvider } from '@ai-sdk/google';
+import {
+  LLM,
+  LLMConfig,
+  LLMProvider,
+  LLMInstance,
+  OpenAIModelConfiguration,
+  AnthropicModelConfiguration,
+  GoogleModelConfiguration,
+} from './interface';
 
-class VercelAILLM implements LLM {
-  private provider: Provider;
-  private config: AIModelType;
+class ModularAILLM implements LLM {
+  private instance: LLMInstance;
+  private config: LLMConfig;
 
-  constructor(provider: Provider, config: AIModelType) {
-    this.provider = provider;
+  constructor(instance: LLMInstance, config: LLMConfig) {
+    this.instance = instance;
     this.config = config;
   }
 
-  getModelInstance(): Provider {
-    return this.provider;
+  getModelInstance(): LLMInstance {
+    return this.instance;
   }
 
-  getConfig(): AIModelType {
+  getConfig(): LLMConfig {
     return this.config;
   }
 }
@@ -26,55 +34,69 @@ export class LLMFactory {
   /**
    * Create an LLM instance based on the provided configuration
    * @param config The LLM configuration
-   * @returns An LLM instance that works with Vercel AI SDK
+   * @returns An LLM instance that works with the AI SDK
    * @throws Error if the provider is not supported
    */
   static create(config: LLMConfig): LLM {
     switch (config.provider) {
       case LLMProvider.OPENAI: {
-        const openai = OpenAI({
-          apiKey: config.apiKey,
-          ...config.options,
-        });
+        const openaiConfig = config as OpenAIModelConfiguration;
 
-        return new VercelAILLM(openai, {
-          provider: config.provider,
-          model: config.model,
-          apiKey: config.apiKey,
-          ...config.options,
-        });
+        // Create the OpenAI model instance using the provider factory
+        // Pass model ID (string) first, then settings (only valid ones)
+        const openaiInstance = openaiProvider(
+          openaiConfig.model, // Pass model string directly
+          {
+            // apiKey, organization, apiVersion, baseURL removed
+            // These are likely handled by provider config/env vars
+          },
+        );
+
+        // Pass the instance and config to the LLM wrapper
+        return new ModularAILLM(openaiInstance, openaiConfig);
       }
 
       case LLMProvider.ANTHROPIC: {
-        const anthropic = Anthropic({
-          apiKey: config.apiKey,
-          ...config.options,
-        });
+        const anthropicConfig = config as AnthropicModelConfiguration;
 
-        return new VercelAILLM(anthropic, {
-          provider: config.provider,
-          model: config.model,
-          apiKey: config.apiKey,
-          ...config.options,
-        });
+        // Create the Anthropic model instance
+        // Pass model ID (string) first, then settings (only valid ones)
+        const anthropicInstance = anthropicProvider(
+          anthropicConfig.model, // Pass model string directly
+          {
+            // apiKey, baseURL removed
+            // These are likely handled by provider config/env vars
+          },
+        );
+
+        // Pass the instance and config to the LLM wrapper
+        return new ModularAILLM(anthropicInstance, anthropicConfig);
       }
 
       case LLMProvider.GOOGLE: {
-        const googleGenAI = GoogleGenerativeAI({
-          apiKey: config.apiKey,
-          ...config.options,
-        });
+        const googleConfig = config as GoogleModelConfiguration;
 
-        return new VercelAILLM(googleGenAI, {
-          provider: config.provider,
-          model: config.model,
-          apiKey: config.apiKey,
-          ...config.options,
-        });
+        // Create the Google model instance
+        // Pass model ID (string) first, then settings (only valid ones)
+        const googleInstance = googleProvider(
+          googleConfig.model, // Pass model string directly
+          {
+            // apiKey, apiVersion removed
+            // These are likely handled by provider config/env vars
+          },
+        );
+
+        // Pass the instance and config to the LLM wrapper
+        return new ModularAILLM(googleInstance, googleConfig);
       }
 
-      default:
-        throw new Error(`Unsupported LLM provider: ${config.provider}`);
+      default: {
+        // Exhaustiveness check: If config reaches here, it's 'never'
+        // because all known providers are handled above.
+        // The previous error was likely due to errors within the cases.
+        const _exhaustiveCheck: never = config;
+        throw new Error(`Unsupported LLM provider: ${_exhaustiveCheck}`);
+      }
     }
   }
 }

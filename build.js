@@ -6,7 +6,9 @@ await esbuild.build({
   format: 'esm',
   outfile: './dist/bundle.js',
   target: 'node18',
+  external: ['path', 'url'], // Treat 'path' and 'url' as external
   banner: {
-    js: `import { createRequire } from 'module';const require = createRequire(import.meta.url);import { fileURLToPath } from 'url';import path from 'path';const __filename = fileURLToPath(import.meta.url);const __dirname = path.dirname(__filename);`,
+    // Keep only the require shim. __filename/__dirname should be defined in source files where needed.
+    js: `import { createRequire } from 'module';const require = createRequire(import.meta.url);`,
   },
 });

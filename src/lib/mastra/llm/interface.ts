@@ -1,4 +1,4 @@
-import { AIModelType, GenerateOptions, ModelConfigurationOptions, Provider } from '@/lib/ai';
+import { LanguageModelV1 } from '@ai-sdk/provider'; // Import LanguageModelV1
 
 export enum LLMProvider {
   OPENAI = 'openai',
@@ -6,14 +6,45 @@ export enum LLMProvider {
   GOOGLE = 'google',
 }
 
-export interface LLMConfig {
+// LLMInstance should represent the actual model instance, not the factory function type.
+// Using LanguageModelV1 from @ai-sdk/provider provides a common interface.
+export type LLMInstance = LanguageModelV1;
+
+export interface BaseModelConfiguration {
   provider: LLMProvider;
-  apiKey: string;
   model: string;
-  options?: ModelConfigurationOptions;
+  apiKey: string;
 }
 
-export interface LLMOptions extends Partial<GenerateOptions> {
+export interface OpenAIModelConfiguration extends BaseModelConfiguration {
+  provider: LLMProvider.OPENAI;
+  options?: {
+    organization?: string;
+    apiVersion?: string;
+    baseURL?: string;
+  };
+}
+
+export interface AnthropicModelConfiguration extends BaseModelConfiguration {
+  provider: LLMProvider.ANTHROPIC;
+  options?: {
+    baseURL?: string;
+  };
+}
+
+export interface GoogleModelConfiguration extends BaseModelConfiguration {
+  provider: LLMProvider.GOOGLE;
+  options?: {
+    apiVersion?: string;
+  };
+}
+
+export type LLMConfig =
+  | OpenAIModelConfiguration
+  | AnthropicModelConfiguration
+  | GoogleModelConfiguration;
+
+export interface LLMOptions {
   stream?: boolean;
   temperature?: number;
   maxTokens?: number;
@@ -21,6 +52,6 @@ export interface LLMOptions extends Partial<GenerateOptions> {
 }
 
 export interface LLM {
-  getModelInstance(): Provider;
-  getConfig(): AIModelType;
+  getModelInstance(): LLMInstance;
+  getConfig(): LLMConfig;
 }
