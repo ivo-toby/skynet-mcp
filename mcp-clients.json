@@ -1,0 +1,34 @@
+{
+  "servers": {
+    "tavily": {
+      "url": "http://localhost:8001/sse",
+      "name": "tavily",
+      "enabled": true
+    },
+    "brave": {
+      "url": "http://localhost:8002/sse",
+      "name": "brave-search",
+      "enabled": true
+    },
+    "memory": {
+      "url": "http://localhost:8003/sse",
+      "name": "memory",
+      "enabled": true
+    },
+    "filesystem": {
+      "url": "http://localhost:8004/sse",
+      "name": "filesystem",
+      "enabled": true
+    },
+    "fetch": {
+      "url": "http://localhost:8005/sse",
+      "name": "fetch",
+      "enabled": true
+    },
+    "local": {
+      "url": "http://localhost:8080/sse",
+      "name": "local",
+      "enabled": true
+    }
+  }
+}

@@ -9,6 +9,8 @@ export * from './mastra/index.js';
 export * from './server/mcp-server.js';
 export * from './lib/mastra/llm/index.js';
 export * from './mastra/dynamic-workflow.js';
+export * from './mastra/mcp-client.js';
+export * from './mastra/mcp-server-manager.js';
 
 // Export version info
 export const version = '0.1.0';
@@ -16,6 +18,7 @@ export const version = '0.1.0';
 import { LLMFactory, createModelConfig } from './lib/mastra/llm';
 import { CompleteAdapter } from './lib/mastra/llm/complete-adapter';
 import { DynamicWorkflow } from './mastra/dynamic-workflow.js';
+import { getMcpServerManager } from './mastra/mcp-server-manager.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -25,9 +28,24 @@ const __filename = fileURLToPath(import.meta.url); // Added definition
 const __dirname = path.dirname(__filename); // Added definition
 
 async function main() {
-  // Load MCP server configuration from the root directory
-  const configPath = path.resolve(__dirname, '../mcp-servers.json');
-  const mcpConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  // Load MCP client configuration from the root directory
+  const configPath = path.resolve(__dirname, '../mcp-clients.json');
+  let mcpConfig;
+  
+  try {
+    mcpConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  } catch (error) {
+    console.warn('Could not load MCP client configuration, using default configuration');
+    mcpConfig = {
+      servers: {
+        tavily: {
+          url: 'http://localhost:8001/sse',
+          name: 'tavily',
+          enabled: true
+        }
+      }
+    };
+  }
 
   // Set up LLM (using environment variable for API key)
   // Ensure you have OPENAI_API_KEY set in your environment
@@ -49,11 +67,51 @@ async function main() {
     2. Latest news about artificial intelligence
   `;
 
+  // Get MCP configuration from environment variables
+  const useMockToolsEnv = process.env.USE_MOCK_TOOLS;
+  const useMockTools = useMockToolsEnv === 'true' || useMockToolsEnv === '1';
+  
+  const enableRealToolsEnv = process.env.ENABLE_REAL_TOOLS;
+  const enableRealTools = enableRealToolsEnv === 'true' || enableRealToolsEnv === '1';
+  
+  const mcpTimeoutEnv = process.env.MCP_CONNECTION_TIMEOUT_MS;
+  const mcpTimeout = mcpTimeoutEnv ? parseInt(mcpTimeoutEnv, 10) : 5000;
+  
+  const mcpHealthCheckIntervalEnv = process.env.MCP_HEALTH_CHECK_INTERVAL_MS;
+  const mcpHealthCheckInterval = mcpHealthCheckIntervalEnv 
+    ? parseInt(mcpHealthCheckIntervalEnv, 10) 
+    : 60000;
+  
+  // Initialize and configure the MCP server manager
+  if (enableRealTools) {
+    const serverManager = getMcpServerManager({
+      checkIntervalMs: mcpHealthCheckInterval,
+      timeoutMs: mcpTimeout
+    });
+    
+    // Register servers with the manager
+    const serverConfigs = Object.values(mcpConfig.servers).map(server => ({
+      url: server.url,
+      name: server.name,
+      enabled: true
+    }));
+    
+    serverManager.registerServers(serverConfigs);
+    
+    // Start health checks
+    serverManager.startHealthChecks();
+    
+    console.log(`MCP server manager initialized with ${serverConfigs.length} servers`);
+  }
+  
   console.log('Creating workflow...');
   // Create dynamic workflow
   const workflow = new DynamicWorkflow({
     llm: llmAdapter,
     toolServers: Object.values(mcpConfig.servers),
+    enableRealTools: !useMockTools && enableRealTools,
+    useRealToolsWhenAvailable: enableRealTools,
+    mcpTimeoutMs: mcpTimeout,
   });
 
   console.log(`Processing prompt: "${testPrompt.trim()}"`);

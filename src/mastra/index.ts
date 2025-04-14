@@ -7,3 +7,7 @@
 
 export * from './dynamic-workflow.js';
 export * from './server-integration.js';
+export * from './mcp-client.js';
+export * from './mcp-server-manager.js';
+// Export mock implementation for compatibility
+export * as mockMcp from './mock-mcp-client.js';

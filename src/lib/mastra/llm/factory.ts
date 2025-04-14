@@ -42,9 +42,15 @@ export class LLMFactory {
       case LLMProvider.OPENAI: {
         const openaiConfig = config as OpenAIModelConfiguration;
 
+        // Get the API key from config or environment
+        const apiKey = openaiConfig.apiKey || process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+          throw new Error('OpenAI API key not provided');
+        }
+        
         // Create the OpenAI model instance using the provider factory
         const openaiInstance = openaiProvider.chat({
-          apiKey: openaiConfig.apiKey,
+          apiKey,
           model: openaiConfig.model,
           ...openaiConfig.options,
         });
@@ -56,9 +62,15 @@ export class LLMFactory {
       case LLMProvider.ANTHROPIC: {
         const anthropicConfig = config as AnthropicModelConfiguration;
 
+        // Get the API key from config or environment
+        const apiKey = anthropicConfig.apiKey || process.env.ANTHROPIC_API_KEY;
+        if (!apiKey) {
+          throw new Error('Anthropic API key not provided');
+        }
+        
         // Create the Anthropic model instance
         const anthropicInstance = anthropicProvider.messages({
-          apiKey: anthropicConfig.apiKey,
+          apiKey,
           model: anthropicConfig.model,
           ...anthropicConfig.options,
         });
@@ -70,9 +82,15 @@ export class LLMFactory {
       case LLMProvider.GOOGLE: {
         const googleConfig = config as GoogleModelConfiguration;
 
+        // Get the API key from config or environment
+        const apiKey = googleConfig.apiKey || process.env.GOOGLE_API_KEY;
+        if (!apiKey) {
+          throw new Error('Google API key not provided');
+        }
+        
         // Create the Google model instance
         const googleInstance = googleProvider.gemini({
-          apiKey: googleConfig.apiKey,
+          apiKey,
           model: googleConfig.model,
           ...googleConfig.options,
         });

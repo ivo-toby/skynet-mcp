@@ -47,8 +47,8 @@ async function main() {
     }
 
     // Set up LLM
-    // Default to OpenAI, but check for others if specified
-    let provider = 'gpt-4o';
+    // Determine which model to use
+    let provider = process.env.DEFAULT_LLM_MODEL || 'gpt-4o';
     
     // Check if model was specified as an argument
     const modelArg = process.argv.findIndex((arg) => arg === '--model');
@@ -62,7 +62,7 @@ async function main() {
     const llmAdapter = new CompleteAdapter(llm);
 
     // Check if real tools should be enabled
-    const enableRealTools = process.argv.includes('--real-tools');
+    const enableRealTools = process.argv.includes('--real-tools') || process.env.ENABLE_REAL_TOOLS === 'true';
     console.log(`Real tools ${enableRealTools ? 'enabled' : 'disabled'}`);
     
     // Create dynamic workflow

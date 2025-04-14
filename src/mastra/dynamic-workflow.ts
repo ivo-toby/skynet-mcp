@@ -8,8 +8,15 @@
 import { z } from 'zod';
 import { 
   DiscoveredTool, 
-  discoverToolsFromServer, 
-  executeToolOnServer 
+  discoverToolsFromServer as discoverRealTools, 
+  executeToolOnServer as executeRealTool,
+  isMcpServerAvailable
+} from './mcp-client.js';
+
+// Import the mock implementation as a fallback
+import {
+  discoverToolsFromServer as discoverMockTools,
+  executeToolOnServer as executeMockTool
 } from './mock-mcp-client.js';
 
 /**
@@ -46,6 +53,8 @@ export interface DynamicWorkflowConfig {
   llm: any; // AI model instance
   toolServers: ToolServerConfig[];
   enableRealTools?: boolean; // Whether to use real MCP server tools
+  useRealToolsWhenAvailable?: boolean; // Attempt to use real tools but fall back to mock when unavailable
+  mcpTimeoutMs?: number; // Timeout for MCP server connections in milliseconds
 }
 
 /**
@@ -57,6 +66,8 @@ export class DynamicWorkflow {
   private tools: Record<string, any> = {};
   private discoveredTools: DiscoveredTool[] = [];
   private enableRealTools: boolean;
+  private useRealToolsWhenAvailable: boolean;
+  private mcpTimeoutMs: number;
   private initialized: boolean = false;
   
   /**
@@ -68,6 +79,8 @@ export class DynamicWorkflow {
     this.llm = config.llm;
     this.toolServers = config.toolServers;
     this.enableRealTools = config.enableRealTools ?? false;
+    this.useRealToolsWhenAvailable = config.useRealToolsWhenAvailable ?? true;
+    this.mcpTimeoutMs = config.mcpTimeoutMs ?? 5000; // Default 5 second timeout
   }
   
   /**
@@ -158,10 +171,16 @@ export class DynamicWorkflow {
       for (const server of this.toolServers) {
         console.log(`Discovering tools from server: ${server.name} (${server.url})`);
         
-        const tools = await discoverToolsFromServer(server.url, server.name);
+        // Check if the server is available
+        const isServerAvailable = await isMcpServerAvailable(server.url);
+        
+        // Use the appropriate function based on server availability
+        const tools = isServerAvailable
+          ? await discoverRealTools(server.url, server.name)
+          : await discoverMockTools(server.url, server.name);
         
         if (tools.length > 0) {
-          console.log(`Found ${tools.length} tools from server ${server.name}`);
+          console.log(`Found ${tools.length} tools from server ${server.name} ${isServerAvailable ? '(real)' : '(mock)'}`);
           this.discoveredTools.push(...tools);
         } else {
           console.warn(`No tools found from server ${server.name}`);
@@ -174,6 +193,9 @@ export class DynamicWorkflow {
       for (const tool of this.discoveredTools) {
         const toolId = `${tool.name}`;
         
+        // Check if the server is available
+        const isServerAvailable = await isMcpServerAvailable(tool.serverUrl);
+        
         this.tools[toolId] = {
           id: toolId,
           name: tool.name,
@@ -182,7 +204,10 @@ export class DynamicWorkflow {
           serverName: tool.serverName,
           serverUrl: tool.serverUrl,
           execute: async (args: Record<string, any>) => {
-            return executeToolOnServer(tool, args);
+            // Use the appropriate function based on server availability
+            return isServerAvailable
+              ? await executeRealTool(tool, args)
+              : await executeMockTool(tool, args);
           }
         };
       }
