@@ -96,46 +96,48 @@ async complete(prompt: string): Promise<CompletionResponse> {
 }
 ```
 
-### 2. Dynamic Workflow Generation
-- Update workflow generation logic in DynamicWorkflow class
-- Implement proper parsing of LLM-generated workflow plans
-- Add validation and error correction for malformed workflows
-- Create template library for common workflow patterns
+### 2. Dynamic Workflow Generation ✅ 
+- ✅ Update workflow generation logic in DynamicWorkflow class
+- ✅ Implement proper parsing of LLM-generated workflow plans
+- ✅ Add validation and error correction for malformed workflows
+- ✅ Create detailed prompt for workflow creation
 
-### 3. Tool Execution Implementation
-- Connect to actual MCP servers specified in configuration
-- Implement tool discovery to find available tools
-- Add parameter validation for tool calls
-- Create response handling for tool execution results
+### 3. Tool Execution Implementation ✅
+- ✅ Create MCP client connector for server communication
+- ✅ Implement tool discovery from MCP servers
+- ✅ Add execution of tools with parameters
+- ✅ Create fallback to mock tools when servers are unavailable
+- ✅ Improved step execution with better error handling
 
 ```typescript
-// Implementation for callToolIfAvailable method
-async callToolIfAvailable(toolName: string, args: Record<string, unknown>): Promise<ToolResponse | null> {
-  // Find the server that provides this tool
-  const toolServer = this.findToolServer(toolName);
-  if (!toolServer) {
-    console.log(`Tool ${toolName} not available on any connected server`);
-    return null;
-  }
-  
+// MCP client implementation for tool execution
+export async function executeToolOnServer(
+  tool: DiscoveredTool,
+  args: Record<string, any>,
+): Promise<any> {
   try {
-    // Connect to the MCP server
-    const client = await createMcpClient(toolServer.url);
+    // Get or create the MCP client
+    const client = await getMcpClient(tool.serverUrl);
     
-    // Call the tool
-    const response = await client.callTool(toolName, args);
+    console.log(`Executing tool ${tool.name} on server ${tool.serverName} with args:`, args);
     
-    return {
-      serverName: toolServer.name,
-      toolName,
-      result: response,
-    };
+    // Execute the tool
+    const result = await client.executeTool(tool.name, args);
+    
+    return result;
   } catch (error) {
-    console.error(`Error calling tool ${toolName}:`, error);
-    throw new Error(`Failed to call tool ${toolName}: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`Error executing tool ${tool.name} on server ${tool.serverName}:`, error);
+    throw new Error(`Failed to execute tool ${tool.name}: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 ```
+
+Features now available:
+- Dynamic discovery of tools from MCP servers
+- Improved workflow generation with better tool descriptions
+- More robust validation of workflow plans
+- Client-side caching of MCP connections
+- Support for both mock and real tools (with `--real-tools` flag)
 
 ### 4. Agent State Persistence
 - Design schema for agent state storage

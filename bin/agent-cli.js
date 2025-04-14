@@ -61,10 +61,15 @@ async function main() {
     const llm = LLMFactory.create(llmConfig);
     const llmAdapter = new CompleteAdapter(llm);
 
+    // Check if real tools should be enabled
+    const enableRealTools = process.argv.includes('--real-tools');
+    console.log(`Real tools ${enableRealTools ? 'enabled' : 'disabled'}`);
+    
     // Create dynamic workflow
     const workflow = new DynamicWorkflow({
       llm: llmAdapter,
       toolServers: Object.values(mcpConfig.servers),
+      enableRealTools,
     });
 
     console.log('Skynet-MCP Agent CLI');
