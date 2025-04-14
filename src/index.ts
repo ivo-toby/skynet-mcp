@@ -5,26 +5,20 @@
  */
 
 // Export key components
-// export * from './mastra/index.js';
-// export * from './server/mcp-server.js';
-//
-// // Export version info
-// export const version = '0.1.0';
-//
-// // Log initialization message when imported directly
-// // Use ESM style detection for main module (when run directly)
-// const isMainModule = import.meta.url === `file://${process.argv[1]}`;
-// if (isMainModule) {
-//   console.log('Skynet-MCP initialized');
-//   console.log(`Version: ${version}`);
-//   console.log('Use the SimpleAgent class to create an agent that can use MCP tools.');
-// }
+export * from './mastra/index.js';
+export * from './server/mcp-server.js';
+export * from './lib/mastra/llm/index.js';
+export * from './mastra/dynamic-workflow.js';
+
+// Export version info
+export const version = '0.1.0';
+
 import { LLMFactory, createModelConfig } from './lib/mastra/llm';
 import { CompleteAdapter } from './lib/mastra/llm/complete-adapter';
-import { DynamicAgent } from './mastra/dynamic-agent';
+import { DynamicWorkflow } from './mastra/dynamic-workflow.js';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url'; // Added import
+import { fileURLToPath } from 'url';
 
 // Define __filename and __dirname for ESM
 const __filename = fileURLToPath(import.meta.url); // Added definition
@@ -42,26 +36,11 @@ async function main() {
     console.error('Error: OPENAI_API_KEY environment variable is not set.');
     process.exit(1);
   }
-  const llmConfig = createModelConfig('gpt-4', apiKey); // Using gpt-4 as an example
+
+  // Set up LLM
+  const llmConfig = createModelConfig('gpt-4', apiKey);
   const llm = LLMFactory.create(llmConfig);
-
-  // Create an adapter that provides the 'complete' method expected by WorkflowManager
   const llmAdapter = new CompleteAdapter(llm);
-
-  // Create dynamic agent, passing the adapter with the 'complete' method
-  // Use type assertion to tell TypeScript that our adapter can be used as a LanguageModelV1
-  const agent = new DynamicAgent({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    llm: llmAdapter as any, // Use type assertion to bypass type checking
-    toolServers: Object.values(mcpConfig.servers), // Pass server configs as an array
-    maxWorkflowSteps: 10,
-    workflowTimeout: 300000, // 5 minutes
-  });
-
-  // Initialize agent
-  console.log('Initializing agent...');
-  await agent.initialize();
-  console.log('Agent initialized.');
 
   // Test prompt
   const testPrompt = `
@@ -70,18 +49,26 @@ async function main() {
     2. Latest news about artificial intelligence
   `;
 
+  console.log('Creating workflow...');
+  // Create dynamic workflow
+  const workflow = new DynamicWorkflow({
+    llm: llmAdapter,
+    toolServers: Object.values(mcpConfig.servers),
+  });
+
   console.log(`Processing prompt: "${testPrompt.trim()}"`);
   try {
-    const result = await agent.processPrompt(testPrompt);
-    console.log('\n--- Agent Response ---');
-    console.log(result);
-    console.log('--- End of Response ---');
+    // Generate and execute the workflow
+    console.log('Executing workflow...');
+    const result = await workflow.execute(testPrompt);
+    
+    console.log('\n--- Workflow Result ---');
+    console.log(JSON.stringify(result, null, 2));
+    console.log('--- End of Result ---');
   } catch (error) {
     console.error('\n--- Error during processing ---');
     console.error(error);
     console.log('--- End of Error ---');
-  } finally {
-    await agent.shutdown();
   }
 }
 

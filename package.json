@@ -5,7 +5,8 @@
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "mcp-server-skynet": "./bin/mcp-server.js"
+    "mcp-server-skynet": "./bin/mcp-server.js",
+    "skynet-agent": "./bin/agent-cli.js"
   },
   "files": [
     "dist"

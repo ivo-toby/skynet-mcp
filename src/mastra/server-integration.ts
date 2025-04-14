@@ -5,8 +5,8 @@
  * allowing the agent to be invoked through the MCP protocol.
  */
 
-import { OpenAI } from '@ai-sdk/openai';
-import { Anthropic } from '@ai-sdk/anthropic';
+import { openai } from '@ai-sdk/openai';
+import { anthropic } from '@ai-sdk/anthropic';
 import { DynamicWorkflow } from './dynamic-workflow.js';
 import fs from 'fs/promises';
 import path from 'path';
@@ -78,14 +78,14 @@ export async function executeDynamicAgent(
     // Initialize the LLM based on provider
     let llm;
     if (llmConfig.provider === LlmProviderType.OPENAI) {
-      const openai = new OpenAI({ apiKey: llmConfig.apiKey });
       llm = openai.chat({
+        apiKey: llmConfig.apiKey,
         model: llmConfig.modelName,
         temperature: llmConfig.temperature || 0.7,
       });
     } else if (llmConfig.provider === LlmProviderType.ANTHROPIC) {
-      const anthropic = new Anthropic({ apiKey: llmConfig.apiKey });
       llm = anthropic.messages({
+        apiKey: llmConfig.apiKey,
         model: llmConfig.modelName,
         temperature: llmConfig.temperature || 0.7,
       });
