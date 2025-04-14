@@ -43,14 +43,11 @@ export class LLMFactory {
         const openaiConfig = config as OpenAIModelConfiguration;
 
         // Create the OpenAI model instance using the provider factory
-        // Pass model ID (string) first, then settings (only valid ones)
-        const openaiInstance = openaiProvider(
-          openaiConfig.model, // Pass model string directly
-          {
-            // apiKey, organization, apiVersion, baseURL removed
-            // These are likely handled by provider config/env vars
-          },
-        );
+        const openaiInstance = openaiProvider.chat({
+          apiKey: openaiConfig.apiKey,
+          model: openaiConfig.model,
+          ...openaiConfig.options,
+        });
 
         // Pass the instance and config to the LLM wrapper
         return new ModularAILLM(openaiInstance, openaiConfig);
@@ -60,14 +57,11 @@ export class LLMFactory {
         const anthropicConfig = config as AnthropicModelConfiguration;
 
         // Create the Anthropic model instance
-        // Pass model ID (string) first, then settings (only valid ones)
-        const anthropicInstance = anthropicProvider(
-          anthropicConfig.model, // Pass model string directly
-          {
-            // apiKey, baseURL removed
-            // These are likely handled by provider config/env vars
-          },
-        );
+        const anthropicInstance = anthropicProvider.messages({
+          apiKey: anthropicConfig.apiKey,
+          model: anthropicConfig.model,
+          ...anthropicConfig.options,
+        });
 
         // Pass the instance and config to the LLM wrapper
         return new ModularAILLM(anthropicInstance, anthropicConfig);
@@ -77,14 +71,11 @@ export class LLMFactory {
         const googleConfig = config as GoogleModelConfiguration;
 
         // Create the Google model instance
-        // Pass model ID (string) first, then settings (only valid ones)
-        const googleInstance = googleProvider(
-          googleConfig.model, // Pass model string directly
-          {
-            // apiKey, apiVersion removed
-            // These are likely handled by provider config/env vars
-          },
-        );
+        const googleInstance = googleProvider.gemini({
+          apiKey: googleConfig.apiKey,
+          model: googleConfig.model,
+          ...googleConfig.options,
+        });
 
         // Pass the instance and config to the LLM wrapper
         return new ModularAILLM(googleInstance, googleConfig);

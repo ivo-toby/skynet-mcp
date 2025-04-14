@@ -2,6 +2,14 @@
 /* eslint-disable no-undef */
 
 async function main() {
+  // Load environment variables from .env file if available
+  try {
+    const dotenv = await import('dotenv');
+    dotenv.config();
+  } catch (error) {
+    console.log('dotenv not available, skipping .env loading');
+  }
+
   // Get port from environment variable or command line
   const portArg = process.argv.findIndex((arg) => arg === '--port');
   if (portArg !== -1 && process.argv[portArg + 1]) {
@@ -12,6 +20,10 @@ async function main() {
   const transportArg = process.argv.findIndex((arg) => arg === '--transport');
   const transport =
     transportArg !== -1 && process.argv[transportArg + 1] ? process.argv[transportArg + 1] : 'sse';
+    
+  // Check for log level
+  const logLevel = process.env.LOG_LEVEL || 'info';
+  console.log(`Log level: ${logLevel}`);
 
   // Import the MCP server module from the bundle
   const { startMcpServer } = await import('../dist/bundle.js');

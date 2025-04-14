@@ -49,22 +49,46 @@ Skynet-MCP is a hierarchical network of AI agents using the Model Context Protoc
 ## Immediate Next Steps
 
 ### 1. Real LLM Integration
-- Refactor CompleteAdapter to make actual API calls to OpenAI/Anthropic
-- Implement proper error handling and rate limiting
-- Add streaming support for real-time responses
-- Update prompt templates for workflow generation
+- ✅ Create mockable CompleteAdapter for workflow testing
+- ⏳ Investigate AI SDK integration issues
+    - Debug model instance structure and interface
+    - Confirm correct API calls for each provider
+    - Create test framework for API calls
+- ⏳ Complete real LLM integration
+    - Implement proper error handling and rate limiting
+    - Add streaming support for real-time responses
+    - Update prompt templates for workflow generation
 
 ```typescript
-// Implementation for complete() method in CompleteAdapter
+// Current mockable implementation in CompleteAdapter
 async complete(prompt: string): Promise<CompletionResponse> {
   try {
-    const response = await this.llm.generateCompletion({
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7,
-      max_tokens: 2000,
-    });
+    // Temporary implementation until we fully resolve the AI SDK integration issues
+    console.log('Using mock completion function');
     
-    return { content: response.text };
+    // Generate a reasonable mock response based on the prompt
+    let responsePlan = {
+      task: `Process the task: ${prompt.substring(0, 100)}...`,
+      steps: [
+        {
+          id: "step1",
+          description: `Search for information about: ${prompt.substring(0, 50)}...`,
+          tool: "web_search",
+          toolParameters: {
+            query: prompt.substring(0, 50)
+          },
+          nextSteps: ["step2"]
+        },
+        {
+          id: "step2",
+          description: "Analyze the search results",
+          nextSteps: []
+        }
+      ],
+      expectedOutput: `A comprehensive analysis of ${prompt.substring(0, 50)}...`
+    };
+    
+    return { content: JSON.stringify(responsePlan, null, 2) };
   } catch (error) {
     console.error('Error completing prompt:', error);
     throw new Error(`Failed to complete prompt: ${error instanceof Error ? error.message : String(error)}`);

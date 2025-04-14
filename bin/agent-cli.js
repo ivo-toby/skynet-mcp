@@ -6,6 +6,14 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import readline from 'readline';
 
+// Load environment variables from .env file if available
+try {
+  const dotenv = await import('dotenv');
+  dotenv.config();
+} catch (error) {
+  console.log('dotenv not available, skipping .env loading');
+}
+
 // Define __filename and __dirname for ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,7 +47,17 @@ async function main() {
     }
 
     // Set up LLM
-    const llmConfig = createModelConfig('gpt-4', apiKey);
+    // Default to OpenAI, but check for others if specified
+    let provider = 'gpt-4o';
+    
+    // Check if model was specified as an argument
+    const modelArg = process.argv.findIndex((arg) => arg === '--model');
+    if (modelArg !== -1 && process.argv[modelArg + 1]) {
+      provider = process.argv[modelArg + 1];
+    }
+    
+    console.log(`Using model: ${provider}`);
+    const llmConfig = createModelConfig(provider, apiKey);
     const llm = LLMFactory.create(llmConfig);
     const llmAdapter = new CompleteAdapter(llm);
 

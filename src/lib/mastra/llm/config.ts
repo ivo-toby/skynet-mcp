@@ -10,6 +10,11 @@ export const ModelConfigs = {
     model: 'gpt-4',
   } as LLMConfig,
   
+  'gpt-4o': {
+    provider: LLMProvider.OPENAI,
+    model: 'gpt-4o',
+  } as LLMConfig,
+  
   'gpt-4-turbo': {
     provider: LLMProvider.OPENAI,
     model: 'gpt-4-turbo-preview',
@@ -41,6 +46,11 @@ export const ModelConfigs = {
     provider: LLMProvider.GOOGLE,
     model: 'gemini-pro',
   } as LLMConfig,
+  
+  'gemini-ultra': {
+    provider: LLMProvider.GOOGLE,
+    model: 'gemini-1.5-pro',
+  } as LLMConfig,
 };
 
 /**
@@ -56,4 +66,21 @@ export function createModelConfig(modelName: keyof typeof ModelConfigs, apiKey: 
     ...baseConfig,
     apiKey,
   };
+}
+
+/**
+ * Helper function to create a custom model config not in the predefined list
+ */
+export function createCustomModelConfig(
+  provider: LLMProvider,
+  model: string,
+  apiKey: string,
+  options?: Record<string, unknown>
+): LLMConfig {
+  return {
+    provider,
+    model,
+    apiKey,
+    options,
+  } as LLMConfig;
 }
