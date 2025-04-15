@@ -1,13 +1,6 @@
 import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { EventEmitter } from 'events';
-// Define fetch type for Node.js environments
-declare global {
-  interface Window {
-    fetch: (url: string, init?: RequestInit) => Promise<Response>;
-  }
-  
-  var fetch: (url: string, init?: RequestInit) => Promise<Response>;
-}
+// Global fetch type is defined in types/global.d.ts
 
 export interface ToolParams {
   [key: string]: unknown;
