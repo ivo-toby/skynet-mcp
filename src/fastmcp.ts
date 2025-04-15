@@ -3,10 +3,10 @@ import { EventEmitter } from 'events';
 // Define fetch type for Node.js environments
 declare global {
   interface Window {
-    fetch: typeof fetch;
+    fetch: (url: string, init?: RequestInit) => Promise<Response>;
   }
   
-  var fetch: typeof fetch;
+  var fetch: (url: string, init?: RequestInit) => Promise<Response>;
 }
 
 export interface ToolParams {
