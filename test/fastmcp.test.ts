@@ -176,31 +176,25 @@ describe('FastMCP', () => {
         writeHead: vi.fn(),
         end: (data: string) => { response = JSON.parse(data); },
       } as any;
+
+      // Simulate a real IncomingMessage for req
+      let dataHandler: ((chunk: string) => void) | undefined;
+      let endHandler: (() => void) | undefined;
       const req = {
         method: 'POST',
         url: '/tool/remoteTool',
         on: (event: string, cb: (chunk: string) => void) => {
-          if (event === 'data') cb(JSON.stringify(params));
-          if (event === 'end') cb('');
+          if (event === 'data') dataHandler = cb;
+          if (event === 'end') endHandler = cb as any;
         },
       } as any;
 
-      // Patch req.on to call both 'data' and 'end' in order
-      let dataCb: ((chunk: string) => void) | undefined;
-      let endCb: ((chunk: string) => void) | undefined;
-      req.on = (event: string, cb: (chunk: string) => void) => {
-        if (event === 'data') dataCb = cb;
-        if (event === 'end') endCb = cb;
-      };
-      // Actually trigger the callbacks as the real server would
-      await new Promise<void>(resolve => {
-        dataCb && dataCb(JSON.stringify(params));
-        endCb && endCb('');
-        resolve();
-      });
+      // Call handleRequest, then manually trigger the data/end events
+      const handlePromise = server.handleRequest(req, res);
+      if (dataHandler) dataHandler(JSON.stringify(params));
+      if (endHandler) endHandler();
+      await handlePromise;
 
-      await server.handleRequest(req, res);
-      // Defensive: If response is undefined, fail with a clear message
       expect(response).toBeDefined();
       expect(response.result).toEqual(remoteResult.result);
       delete (globalThis as any).fetch;
