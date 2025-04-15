@@ -112,14 +112,15 @@ describe('FastMCP', () => {
         ok: true,
         json: async () => mockTools,
       });
-      vi.stubGlobal('fetch', fetchMock);
+      // Patch globalThis.fetch for node-fetch import
+      (globalThis as any).fetch = fetchMock;
 
       const remoteTools = await server.listRemoteTools();
       expect(fetchMock).toHaveBeenCalledWith('http://remote-server/tools');
       expect(remoteTools).toEqual([
         { name: 'remoteTool', description: 'Remote tool desc', source: 'remote1' },
       ]);
-      vi.unstubAllGlobals();
+      delete (globalThis as any).fetch;
     });
 
     it('should list remote resources', async () => {
@@ -128,14 +129,14 @@ describe('FastMCP', () => {
         ok: true,
         json: async () => mockResources,
       });
-      vi.stubGlobal('fetch', fetchMock);
+      (globalThis as any).fetch = fetchMock;
 
       const remoteResources = await server.listRemoteResources();
       expect(fetchMock).toHaveBeenCalledWith('http://remote-server/resources');
       expect(remoteResources).toEqual([
         { name: 'remoteRes', description: 'Remote resource desc', source: 'remote1' },
       ]);
-      vi.unstubAllGlobals();
+      delete (globalThis as any).fetch;
     });
 
     it('should list remote prompts', async () => {
@@ -144,14 +145,14 @@ describe('FastMCP', () => {
         ok: true,
         json: async () => mockPrompts,
       });
-      vi.stubGlobal('fetch', fetchMock);
+      (globalThis as any).fetch = fetchMock;
 
       const remotePrompts = await server.listRemotePrompts();
       expect(fetchMock).toHaveBeenCalledWith('http://remote-server/prompts');
       expect(remotePrompts).toEqual([
         { name: 'remotePrompt', description: 'Remote prompt desc', source: 'remote1' },
       ]);
-      vi.unstubAllGlobals();
+      delete (globalThis as any).fetch;
     });
 
     it('should delegate tool invocation to remote MCP server if not found locally', async () => {
@@ -166,7 +167,7 @@ describe('FastMCP', () => {
         }
         return Promise.resolve({ ok: false });
       });
-      vi.stubGlobal('fetch', fetchMock);
+      (globalThis as any).fetch = fetchMock;
 
       // Simulate HTTP POST handler logic
       // (directly call the handler for simplicity)
@@ -200,7 +201,7 @@ describe('FastMCP', () => {
 
       await server.handleRequest(req, res);
       expect(response.result).toEqual(remoteResult.result);
-      vi.unstubAllGlobals();
+      delete (globalThis as any).fetch;
     });
   });
 });
