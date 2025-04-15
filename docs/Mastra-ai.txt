@@ -1,0 +1,6664 @@
+# Documentation from https://mastra.ai
+> Extracted content from docs/reference
+
+----------------------------------------
+https://mastra.ai/docs/reference/client-js
+----------------------------------------
+
+# Mastra Client SDK - JS Overview
+
+The Mastra Client SDK provides a type-safe interface for interacting with Mastra REST APIs in TypeScript and JavaScript applications, supporting features like agents, vectors, memory, tools, and workflows.
+
+## Installation
+
+To install the SDK, use one of the following commands:
+
+```bash
+npm install @mastra/client-js
+yarn add @mastra/client-js
+pnpm add @mastra/client-js
+```
+
+### Requirements
+
+- Node.js 16.x or later
+- TypeScript 4.7+ (for TypeScript users)
+- Modern browser environment with Fetch API support (for browser usage)
+
+## Local Development
+
+To connect to a local Mastra server:
+
+```javascript
+const client = new MastraClient({
+  baseUrl: "http://localhost:4111" // Default Mastra server port
+});
+```
+
+## Basic Configuration
+
+Minimal configuration requires only the `baseUrl`:
+
+```javascript
+import { MastraClient } from "@mastra/client-js";
+
+const client = new MastraClient({
+  baseUrl: "http://localhost:4111"
+});
+```
+
+### Configuration Options
+
+Complete configuration example:
+
+```javascript
+const client = new MastraClient({
+  baseUrl: "http://localhost:4111", // Required
+  retries: 3,                       // Optional: Number of retry attempts (default: 3)
+  backoffMs: 300,                   // Optional: Initial backoff time in ms (default: 300)
+  maxBackoffMs: 5000,               // Optional: Maximum backoff time in ms (default: 5000)
+  headers: {                        // Optional: Custom headers
+    "Custom-Header": "value"
+  }
+});
+```
+
+| Option           | Type                      | Default | Description                                   |
+|------------------|---------------------------|---------|-----------------------------------------------|
+| `baseUrl`        | string                    | -       | Base URL of your Mastra API endpoint (required) |
+| `retries`        | number                    | 3       | Number of times to retry failed requests      |
+| `backoffMs`     | number                    | 300     | Initial backoff time in milliseconds          |
+| `maxBackoffMs`  | number                    | 5000    | Maximum backoff time in milliseconds          |
+| `headers`       | Record<string, string>    | {}      | Custom headers to include in all requests     |
+
+## Available Resources
+
+The client provides access to:
+
+- **Agents**: Manage AI agents and generate responses.
+- **Memory**: Handle conversation threads and message history.
+- **Tools**: Access and execute tools for agents.
+- **Workflows**: Manage automated workflows.
+- **Vectors**: Perform vector operations for semantic search.
+
+## Quick Example
+
+Using the client with an agent:
+
+```javascript
+const client = new MastraClient({
+  baseUrl: "http://localhost:4111"
+});
+
+// Get an agent instance
+const agent = client.getAgent("your-agent-id");
+
+// Generate a response
+const response = await agent.generate({
+  messages: [{
+    role: "user",
+    content: "Hello!"
+  }]
+});
+```
+
+Last updated on February 20, 2025.
+
+----------------------------------------
+https://mastra.ai/docs/reference/agents/createTool
+----------------------------------------
+
+### API Documentation Summary
+
+#### Tool: `createTool()`
+
+**Description:**  
+Creates a typed function (tool) for agents or workflows with parameter validation and integration access.
+
+**Key Components:**
+- **Schema:** Defines tool inputs.
+- **Executor Function:** Implements tool logic.
+- **Integrations:** Access to configured integrations.
+
+#### Example Tool: `stockPrices`
+
+**Functionality:** Fetches the last day's closing stock price for a given symbol.
+
+**Code Implementation:**
+```typescript
+import { createTool } from "@mastra/core/logger";
+import { z } from "zod";
+
+const getStockPrice = async (symbol: string) => {
+    const data = await fetch(`https://mastra-stock-data.vercel.app/api/stock-data?symbol=${symbol}`)
+        .then(r => r.json());
+    return data.prices["4. close"];
+};
+
+export const stockPrices = createTool({
+    id: "Get Stock Price",
+    inputSchema: z.object({
+        symbol: z.string(),
+    }),
+    description: "Fetches the last day's closing stock price for a given symbol",
+    execute: async ({ context }) => {
+        console.log("Using tool to fetch stock price for", context.symbol);
+        return {
+            symbol: context.symbol,
+            currentPrice: await getStockPrice(context.symbol),
+        };
+    },
+});
+```
+
+#### API Signature
+
+**Parameters:**
+- `label: string` - Name of the tool.
+- `schema: ZodSchema` - Schema for input validation.
+- `description: string` - Explanation of tool functionality.
+- `executor: (params: ExecutorParams) => Promise<any>` - Async function for fetching market data.
+
+**ExecutorParams:**
+- `data: object` - Validated input data (e.g., symbol).
+- `integrationsRegistry: function` - Function for connected integrations.
+- `runId?: string` - Current run ID.
+- `agents: Map<string, Agent<any>>` - Registered agents.
+- `engine?: MastraEngine` - Mastra engine instance.
+- `llm: LLM` - LLM instance.
+- `outputSchema?: ZodSchema` - Schema for output validation.
+
+**Returns:**
+- `ToolApi: object` - Includes schema, label, description, and executor function.
+- `schema: ZodSchema<IN>` - Input validation schema.
+- `label: string` - Tool name.
+- `description: string` - Tool functionality description.
+- `outputSchema?: ZodSchema<OUT>` - Output validation schema.
+- `executor: (params: IntegrationApiExecutorParams<IN>) => Promise<OUT>` - Executes tool logic. 
+
+**Last Updated:** February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/agents/generate
+----------------------------------------
+
+### Agent API: `generate()` Method
+
+The `generate()` method interacts with an agent to produce text or structured responses. It accepts the following parameters:
+
+#### Parameters
+
+- **messages**: 
+  - Type: `string | Array<string> | Array<Message>`
+  - Description: The messages to be processed. Can be:
+    - A single string
+    - An array of strings
+    - An array of message objects with `role` and `content` properties.
+
+  - **Message Object Structure**:
+    ```typescript
+    interface Message {
+      role: 'system' | 'user' | 'assistant';
+      content: string;
+    }
+    ```
+
+- **options** (Optional): 
+  - Type: `object`
+  - Description: Additional options for the `generate` method, which can include:
+    - `structuredOutput` (or `schema`): Defines the expected output structure (JSON Schema or Zod schema).
+    - Other options like `onStepFinish`, `maxSteps`, `threadId`, `resourceId`, etc.
+
+#### Returns
+
+The return value depends on the `options` provided, specifically the `structuredOutput` option:
+
+- **text** (optional): Generated text response (if `structuredOutput` is not provided).
+- **object** (optional): Generated structured response (if `structuredOutput` is provided).
+- **toolCalls** (optional): Array of tool calls made during generation.
+- **error** (optional): Error message if generation fails.
+
+#### ToolCall Structure
+
+- **toolName**: `string` - The name of the invoked tool.
+- **args**: `any` - Arguments passed to the tool.
+
+#### Related Methods
+
+- For real-time streaming responses, refer to the `stream()` method documentation. 
+
+_Last updated on February 20, 2025._
+
+----------------------------------------
+https://mastra.ai/docs/reference/agents/getAgent
+----------------------------------------
+
+### API Reference: Agents
+
+#### Method: `getAgent()`
+
+**Description**: Retrieves an agent based on the provided configuration.
+
+**Signature**:
+```javascript
+async function getAgent({
+  connectionId: string,
+  agent: Record<string, any>,
+  apis: Record<string, IntegrationApi>,
+  logger: any,
+}): Promise<(props: { prompt: string }) => Promise<any>>
+```
+
+**Parameters**:
+- `connectionId` (string): The connection ID for the agent's API calls.
+- `agent` (Record<string, any>): The agent configuration object.
+- `apis` (Record<string, IntegrationAPI>): A map of API names to their respective API objects.
+- `logger` (any): Logger for tracking.
+
+**Returns**: A promise that resolves to a function, which takes an object with a `prompt` string and returns a promise resolving to any response.
+
+**Example Usage**:
+```javascript
+const agent = await getAgent({
+  connectionId: '12345',
+  agent: { /* agent configuration */ },
+  apis: { /* API mappings */ },
+  logger: console,
+});
+
+const response = await agent({ prompt: 'Hello' });
+console.log(response); // { message: "Hello, world!" }
+```
+
+**Last Updated**: February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/agents/stream
+----------------------------------------
+
+### API Method: `stream()`
+
+The `stream()` method allows real-time streaming of responses from an agent. It accepts `messages` and an optional `options` object.
+
+#### Parameters
+
+- **messages**: Can be one of the following:
+  - A single string
+  - An array of strings
+  - An array of message objects with `role` and `content` properties
+
+  **Message Object Structure**:
+  ```typescript
+  interface Message {
+    role: 'system' | 'user' | 'assistant';
+    content: string;
+  }
+  ```
+
+- **options** (Optional): An object that may include:
+  - `output?`: string | JSONSchema7 | ZodSchema - Defines output format ("text" or a schema).
+  - `context?`: CoreMessage[] - Additional context messages.
+  - `threadId?`: string - Identifier for conversation context.
+  - `resourceId?`: string - Identifier for user/resource.
+  - `onFinish?`: (result: string) => Promise<void> | void - Callback when streaming is complete.
+  - `onStepFinish?`: (step: string) => void - Callback after each streaming step.
+  - `maxSteps?`: number - Maximum steps during streaming.
+  - `toolsets?`: ToolsetsInput - Additional toolsets for the agent.
+  - `temperature?`: number - Controls randomness of output (0.2 for focused, 0.8 for random).
+
+#### Returns
+
+Returns a promise that resolves to an object with:
+- `textStream?`: AsyncIterable<string> - Stream of text chunks (if output is "text").
+- `objectStream?`: AsyncIterable<object> - Stream of structured data (if schema is provided).
+- `object?`: Promise<object> - Final structured output when using a schema.
+
+#### Examples
+
+**Basic Text Streaming**:
+```javascript
+const stream = await myAgent.stream([{ role: 'user', content: 'Tell me a story.' }]);
+
+for await (const chunk of stream.textStream) {
+  process.stdout.write(chunk);
+}
+```
+
+**Structured Output Streaming with Thread Context**:
+```javascript
+const schema = {
+  type: 'object',
+  properties: {
+    summary: { type: 'string' },
+    nextSteps: { type: 'array', items: { type: 'string' } }
+  },
+  required: ['summary', 'nextSteps']
+};
+
+const response = await myAgent.stream("What should we do next?", {
+  output: schema,
+  threadId: "project-123",
+  onFinish: text => console.log("Finished:", text)
+});
+
+for await (const chunk of response.textStream) {
+  console.log(chunk);
+}
+
+const result = await response.object;
+console.log("Final structured result:", result);
+```
+
+### Key Differences
+The `stream()` method for Agents maintains conversation context through `threadId`, can access tools, and integrates with the agent’s memory system. 
+
+_Last updated: February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/cli/build
+----------------------------------------
+
+### mastra build Command
+
+**Description**: Bundles a Mastra project into a production-ready Hono server, ideal for deploying Mastra agents as HTTP endpoints.
+
+#### Usage
+```bash
+mastra build [options]
+```
+
+#### Options
+- `--dir <path>`: Specifies the directory containing your Mastra project (default: current directory).
+
+#### Functionality
+- Locates the Mastra entry file (`src/mastra/index.ts` or `src/mastra/index.js`).
+- Creates a `.mastra` output directory.
+- Bundles code using Rollup with:
+  - Tree shaking for optimal bundle size.
+  - Node.js environment targeting.
+  - Source map generation for debugging.
+
+#### Example Commands
+- Build from the current directory:
+  ```bash
+  mastra build
+  ```
+- Build from a specific directory:
+  ```bash
+  mastra build --dir ./my-mastra-project
+  ```
+
+#### Output
+- Generates a production bundle in the `.mastra` directory, including:
+  - A Hono-based HTTP server with Mastra agents as endpoints.
+  - Optimized bundled JavaScript files.
+  - Source maps for debugging.
+
+#### Suitable For
+- Deploying to cloud servers (e.g., EC2, Digital Ocean).
+- Running in containerized environments.
+- Using with container orchestration systems.
+
+**Last Updated**: February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/cli/deploy
+----------------------------------------
+
+### Mastra CLI Deployment Commands
+
+#### Command: `mastra deploy`
+Deploy your Mastra project to various platforms.
+
+- **Vercel**: 
+  ```bash
+  mastra deploy vercel
+  ```
+
+- **Cloudflare**: 
+  ```bash
+  mastra deploy cloudflare
+  ```
+
+- **Netlify**: 
+  ```bash
+  mastra deploy netlify
+  ```
+
+#### Flags
+- `-d, --dir <dir>`: Specify the path to your Mastra folder.
+
+**Last updated:** February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/cli/dev
+----------------------------------------
+
+### mastra dev Command
+
+The `mastra dev` command starts a development server exposing REST endpoints for agents, tools, and workflows.
+
+#### Parameters
+- `--dir`: *string*  
+  Path to the Mastra folder (default: current directory).
+  
+- `--env`: *string*  
+  Environment file to load (default: `.env.development`, falls back to `.env`).
+
+- `--tools`: *string*  
+  Comma-separated paths to additional tool directories (e.g., `src/tools/dbTools,src/tools/scraperTools`).
+
+- `--port`: *number*  
+  Port number for the server (default: 4111).
+
+#### REST Endpoints
+
+**Agent Routes** (from `src/mastra/agents`):
+- `GET /api/agents`: Lists registered agents.
+- `POST /api/agents/:agentId/generate`: Sends a prompt to the specified agent.
+
+**Tool Routes** (from `src/mastra/tools`):
+- `POST /api/tools/:toolName`: Invokes a tool by name with input data.
+
+**Workflow Routes** (from `src/mastra/workflows`):
+- `POST /api/workflows/:workflowName/start`: Starts a workflow.
+- `POST /api/workflows/:workflowName/:instanceId/event`: Sends an event to a workflow instance.
+- `GET /api/workflows/:workflowName/:instanceId/status`: Returns status of a running workflow instance.
+
+**OpenAPI Specification**:
+- `GET /openapi.json`: Returns auto-generated OpenAPI specification.
+
+#### Additional Notes
+- Default port is 4111.
+- Ensure environment variables (e.g., `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) are set in `.env.development` or `.env`.
+
+#### Example Request
+To test an agent after running `mastra dev`:
+
+```bash
+curl -X POST http://localhost:4111/api/agents/myAgent/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      { "role": "user", "content": "Hello, how can you assist me today?" }
+    ]
+  }'
+```
+
+#### Related Documentation
+- **REST Endpoints Overview**: Detailed usage of the dev server and agent endpoints.
+- **mastra deploy**: Instructions for deploying your project to Vercel or Cloudflare.
+
+----------------------------------------
+https://mastra.ai/docs/reference/cli/init
+----------------------------------------
+
+### Mastra CLI: `mastra init`
+
+**Purpose:** Creates a new Mastra project.
+
+#### Modes of Operation:
+
+1. **Interactive Mode (Recommended)**
+   - Run `mastra init` without flags.
+   - Prompts for:
+     - Directory for Mastra files
+     - Components to install (Agents, Tools, Workflows)
+     - Default LLM provider (OpenAI, Anthropic, Groq)
+     - Option to include example code
+
+2. **Quick Start with Defaults**
+   - Command: 
+     ```bash
+     mastra init --default
+     ```
+   - Sets up:
+     - Source directory: `src/`
+     - All components: agents, tools, workflows
+     - Default LLM provider: OpenAI
+     - No example code
+
+3. **Custom Setup**
+   - Command: 
+     ```bash
+     mastra init --dir src/mastra --components agents,tools --llm openai --example
+     ```
+   - Options:
+     - `-d, --dir`: Directory for Mastra files (default: `src/mastra`)
+     - `-c, --components`: Comma-separated list of components (agents, tools, workflows)
+     - `-l, --llm`: Default model provider (options: openai, anthropic, groq)
+     - `-k, --llm-api-key`: API key for selected LLM provider (added to `.env` file)
+     - `-e, --example`: Include example code
+     - `-ne, --no-example`: Skip example code
+
+**Last Updated:** February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/client-js/agents
+----------------------------------------
+
+### Agents API Overview
+
+The Agents API allows interaction with Mastra AI agents for generating responses, streaming interactions, and managing tools.
+
+#### Key Methods
+
+1. **Get All Agents**
+   - **Description**: Retrieve a list of all available agents.
+   - **Code**:
+     ```javascript
+     const agents = await client.getAgents();
+     ```
+
+2. **Get Specific Agent**
+   - **Description**: Get an instance of a specific agent.
+   - **Parameters**: 
+     - `agent-id`: ID of the agent.
+   - **Code**:
+     ```javascript
+     const agent = client.getAgent("agent-id");
+     ```
+
+3. **Get Agent Details**
+   - **Description**: Retrieve detailed information about an agent.
+   - **Code**:
+     ```javascript
+     const details = await agent.details();
+     ```
+
+4. **Generate Response**
+   - **Description**: Generate a response from the agent.
+   - **Parameters**:
+     - `messages`: Array of message objects (role and content).
+     - `threadId` (optional): Thread ID for context.
+     - `resourceid` (optional): Resource ID.
+     - `output` (optional): Output configuration.
+   - **Code**:
+     ```javascript
+     const response = await agent.generate({
+       messages: [{ role: "user", content: "Hello, how are you?" }],
+       threadId: "thread-1",
+       resourceid: "resource-1",
+       output: {},
+     });
+     ```
+
+5. **Stream Response**
+   - **Description**: Stream a response for real-time interactions.
+   - **Code**:
+     ```javascript
+     const response = await agent.stream({
+       messages: [{ role: "user", content: "Tell me a story" }],
+     });
+
+     const reader = response.body.getReader();
+     while (true) {
+       const { done, value } = await reader.read();
+       if (done) break;
+       console.log(new TextDecoder().decode(value));
+     }
+     ```
+
+6. **Get Agent Tool**
+   - **Description**: Retrieve information about a specific tool available to the agent.
+   - **Parameters**:
+     - `tool-id`: ID of the tool.
+   - **Code**:
+     ```javascript
+     const tool = await agent.getTool("tool-id");
+     ```
+
+7. **Get Agent Evaluations**
+   - **Description**: Get evaluation results for the agent.
+   - **Code**:
+     ```javascript
+     const evals = await agent.evals();
+     const liveEvals = await agent.liveEvals();
+     ```
+
+#### Last Updated
+February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/client-js/error-handling
+----------------------------------------
+
+# Mastra Client SDK - JS Error Handling
+
+## Key Features
+- Built-in retry mechanism and error handling.
+  
+## Error Handling
+All API methods can throw errors. Use try-catch to handle them:
+
+```javascript
+try {
+    const agent = client.getAgent("agent-id");
+    const response = await agent.generate({
+        messages: [{ role: "user", content: "Hello" }],
+    });
+} catch (error) {
+    console.error("An error occurred:", error.message);
+}
+```
+
+## Retry Mechanism
+The client retries failed requests with exponential backoff.
+
+### Configuration
+```javascript
+const client = new MastraClient({
+    baseUrl: "http://localhost:4111",
+    retries: 3,          // Number of retry attempts
+    backoffMs: 300,      // Initial backoff time
+    maxBackoffMs: 5000,  // Maximum backoff time
+});
+```
+
+### Retry Process
+1. First attempt fails → Wait 300ms
+2. Second attempt fails → Wait 600ms
+3. Third attempt fails → Wait 1200ms
+4. Final attempt fails → Throw error
+
+_Last updated on February 20, 2025._
+
+----------------------------------------
+https://mastra.ai/docs/reference/client-js/logs
+----------------------------------------
+
+# Logs API Overview
+
+The Logs API allows access to system logs and debugging information in Mastra.
+
+## API Methods
+
+### 1. `getLogs`
+
+**Description**: Retrieve system logs with optional filtering.
+
+**Parameters**:
+- `transportId` (string): ID of the transport to filter logs.
+
+**Example**:
+```javascript
+const logs = await client.getLogs({
+  transportId: "transport-1",
+});
+```
+
+### 2. `getLogForRun`
+
+**Description**: Retrieve logs for a specific execution run.
+
+**Parameters**:
+- `runId` (string): ID of the specific run.
+- `transportId` (string): ID of the transport.
+
+**Example**:
+```javascript
+const runLogs = await client.getLogForRun({
+  runId: "run-1",
+  transportId: "transport-1",
+});
+```
+
+_Last updated on February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/client-js/memory
+----------------------------------------
+
+# Memory API Overview
+
+The Memory API allows management of conversation threads and message history in Mastra.
+
+## Memory Thread Operations
+
+### 1. Get All Threads
+Retrieve all memory threads for a specific resource:
+```javascript
+const threads = await client.getMemoryThreads({
+  resourceid: "resource-1"
+});
+```
+
+### 2. Create a New Thread
+Create a new memory thread:
+```javascript
+const thread = await client.createMemoryThread({
+  title: "New Conversation",
+  metadata: { category: "support" },
+  resourceid: "resource-1"
+});
+```
+
+### 3. Get a Specific Thread
+Get an instance of a specific memory thread:
+```javascript
+const thread = client.getMemoryThread("thread-id");
+```
+
+## Thread Methods
+
+### 1. Get Thread Details
+Retrieve details about a specific thread:
+```javascript
+const details = await thread.get();
+```
+
+### 2. Update Thread
+Update thread properties:
+```javascript
+const updated = await thread.update({
+  title: "Updated Title",
+  metadata: { status: "resolved" },
+  resourceid: "resource-1"
+});
+```
+
+### 3. Delete Thread
+Delete a thread and its messages:
+```javascript
+await thread.delete();
+```
+
+## Message Operations
+
+### 1. Save Messages
+Save messages to memory:
+```javascript
+const savedMessages = await client.saveMessageToMemory({
+  messages: [{
+    role: "user",
+    content: "Hello!",
+    id: "1",
+    threadId: "thread-1",
+    createdAt: new Date(),
+    type: "text"
+  }]
+});
+```
+
+### 2. Get Memory Status
+Check the status of the memory system:
+```javascript
+const status = await client.getMemoryStatus();
+```
+
+_Last updated on February 20, 2025._
+
+----------------------------------------
+https://mastra.ai/docs/reference/client-js/telemetry
+----------------------------------------
+
+**Telemetry API Overview**
+
+The Telemetry API allows retrieval and analysis of traces from Mastra applications, aiding in monitoring and debugging performance.
+
+**Get Traces Method**
+
+**Method:** `getTelemetry()`
+
+**Parameters:**
+- `name` (string): Optional. Filter by trace name.
+- `scope` (string): Optional. Filter by scope.
+- `page` (number): Optional. Page number for pagination (default: 1).
+- `perPage` (number): Optional. Number of items per page (default: 10).
+- `attribute` (object): Optional. Filter by custom attributes.
+  - `key` (string): The attribute key to filter by.
+
+**Example Code:**
+```javascript
+const telemetry = await client.getTelemetry({
+  name: "trace-name", // Optional
+  scope: "scope-name", // Optional
+  page: 1, // Optional
+  perPage: 10, // Optional
+  attribute: {
+    key: "value", // Optional
+  },
+});
+```
+
+**Last Updated:** February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/client-js/tools
+----------------------------------------
+
+# Tools API Overview
+
+The Tools API enables interaction with tools on the Mastra platform.
+
+## API Methods
+
+### 1. Get All Tools
+Retrieve a list of all available tools:
+```javascript
+const tools = await client.getTools();
+```
+
+### 2. Get Specific Tool
+Get an instance of a specific tool by its ID:
+```javascript
+const tool = client.getTool("tool-id");
+```
+
+### 3. Get Tool Details
+Retrieve detailed information about a specific tool:
+```javascript
+const details = await tool.details();
+```
+
+### 4. Execute Tool
+Execute a tool with specified arguments:
+```javascript
+const result = await tool.execute({
+  args: {
+    param1: "value1",
+    param2: "value2",
+  },
+  threadId: "thread-1", // Optional: Thread context
+  resourceid: "resource-1", // Optional: Resource identifier
+});
+```
+
+**Last updated:** February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/client-js/vectors
+----------------------------------------
+
+# Vectors API Overview
+
+The Vectors API allows interaction with vector embeddings for semantic search and similarity matching in Mastra.
+
+## Key Methods
+
+### 1. Get Vector Store
+Retrieve an instance of a vector store:
+```javascript
+const vector = client.getVector("vector-name");
+```
+
+### 2. Get Vector Index Details
+Fetch details about a specific vector index:
+```javascript
+const details = await vector.details("index-name");
+```
+
+### 3. Create Vector Index
+Create a new vector index:
+```javascript
+const result = await vector.createIndex({
+  indexName: "new-index",
+  dimension: 128,
+  metric: "cosine" // Options: 'cosine', 'euclidean', 'dotproduct'
+});
+```
+
+### 4. Upsert Vectors
+Add or update vectors in an index:
+```javascript
+const ids = await vector.upsert({
+  indexName: "my-index",
+  vectors: [
+    [0.1, 0.2, 0.3], // First vector
+    [0.4, 0.5, 0.6]  // Second vector
+  ],
+  metadata: [{ label: "first" }, { label: "second" }],
+  ids: ["id1", "id2"] // Optional: Custom IDs
+});
+```
+
+### 5. Query Vectors
+Search for similar vectors:
+```javascript
+const results = await vector.query({
+  indexName: "my-index",
+  queryVector: [0.1, 0.2, 0.3],
+  topK: 10,
+  filter: { label: "first" }, // Optional: Metadata filter
+  includeVector: true // Optional: Include vectors in results
+});
+```
+
+### 6. Get All Indexes
+List all available indexes:
+```javascript
+const indexes = await vector.getIndexes();
+```
+
+### 7. Delete Index
+Remove a vector index:
+```javascript
+const result = await vector.delete("index-name");
+```
+
+**Last updated on February 20, 2025.**
+
+----------------------------------------
+https://mastra.ai/docs/reference/client-js/workflows
+----------------------------------------
+
+# Workflows API Overview
+
+The Workflows API allows interaction with automated workflows in Mastra.
+
+## API Methods
+
+### 1. Get All Workflows
+Retrieve a list of all available workflows.
+```javascript
+const workflows = await client.getWorkflows();
+```
+
+### 2. Get Specific Workflow
+Get an instance of a specific workflow using its ID.
+```javascript
+const workflow = client.getWorkflow("workflow-id");
+```
+
+### 3. Get Workflow Details
+Retrieve detailed information about a workflow.
+```javascript
+const details = await workflow.details();
+```
+
+### 4. Execute Workflow
+Execute a workflow with input parameters.
+```javascript
+const result = await workflow.execute({
+  input: {
+    param1: "value1",
+    param2: "value2",
+  },
+});
+```
+
+### 5. Resume Workflow
+Resume a suspended workflow step.
+```javascript
+const result = await workflow.resume({
+  stepId: "step-id",
+  runId: "run-id",
+  contextData: { key: "value" },
+});
+```
+
+### 6. Watch Workflow
+Watch workflow transitions in real-time.
+```javascript
+const response = await workflow.watch();
+const reader = response.body.getReader();
+let buffer = "";
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+  buffer += new TextDecoder().decode(value);
+  
+  const records = buffer.split("\x1E");
+  buffer = records.pop() || "";
+  
+  for (const record of records) {
+    const { activePaths, context, timestamp } = record;
+    console.log({ activePaths, context, timestamp });
+  }
+}
+```
+
+_Last updated on February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/core/mastra-class
+----------------------------------------
+
+### Mastra Class Overview
+
+The **Mastra Class** is the primary entry point for applications, managing agents, workflows, and server endpoints.
+
+#### Constructor Options
+- **agents**: `Agent[]` (default: `[]`) - Array of Agent instances.
+- **tools**: `Record<string, ToolApi>` (default: `{}`) - Custom tools as key-value pairs.
+- **integrations**: `Integration[]` (default: `[]`) - Array of Mastra integrations.
+- **engine**: `MastraEngine` - Database engine instance.
+- **vectors**: `Record<string, MastraVector>` - Vector store for semantic search (e.g., Pinecone, PgVector, Qdrant).
+- **logger**: `Logger` (default: Console logger with INFO level) - Logger instance from `createLogger()`.
+- **workflows**: `Record<string, Workflow>` (default: `{}`) - Workflows as key-value pairs.
+
+#### Initialization
+Typically initialized in `src/mastra/index.ts`:
+
+```javascript
+import { Mastra } from "@mastra/core";
+import { createLogger } from "@mastra/core/logger";
+
+// Basic initialization
+export const mastra = new Mastra({});
+
+// Full initialization
+export const mastra = new Mastra({
+  agents: [],
+  workflows: {},
+  integrations: [],
+  logger: createLogger({
+    name: "My Project",
+    level: "info",
+  }),
+  engine: {},
+  tools: {},
+  vectors: {},
+});
+```
+
+#### Methods
+- **getAgent(name: string): Agent**  
+  Returns an agent instance by ID. Throws if not found.
+
+- **setLogger({ key: string, logger: Logger }): void**  
+  Sets a logger for a specific component (AGENT | WORKFLOW).
+
+- **getLogger(key: string): Logger | undefined**  
+  Retrieves the logger for a specific component.
+
+#### Error Handling
+Methods throw typed errors that can be caught:
+
+```javascript
+try {
+  const tool = mastra.getTool("nonexistentTool");
+} catch (error) {
+  if (error instanceof Error) {
+    console.log(error.message); // "Tool with name nonexistentTool not found"
+  }
+}
+```
+
+_Last updated on February 20, 2025._
+
+----------------------------------------
+https://mastra.ai/docs/reference/evals/answer-relevancy
+----------------------------------------
+
+# AnswerRelevancyMetric Class
+
+The `AnswerRelevancyMetric` class evaluates the relevancy of an LLM's output against an input query using a judge-based scoring system.
+
+## Basic Usage
+
+```javascript
+import { openai } from "@ai-sdk/openai";
+import { AnswerRelevancyMetric } from "@mastra/evals/llm";
+
+// Configure the model for evaluation
+const model = openai("gpt-4o-mini");
+
+const metric = new AnswerRelevancyMetric(model, {
+  uncertaintyWeight: 0.3,
+  scale: 1,
+});
+
+const result = await metric.measure(
+  "What is the capital of France?",
+  "Paris is the capital of France."
+);
+
+console.log(result.score); // Score from 0-1
+console.log(result.info.reason); // Explanation of the score
+```
+
+## Constructor Parameters
+
+- **model**: `LanguageModel` - Configuration for the model used to evaluate relevancy.
+- **options**: `AnswerRelevancyMetricOptions` (optional) - Configuration options for the metric.
+  - **uncertaintyWeight**: `number` (default: 0.3) - Weight for 'unsure' verdicts (0-1).
+  - **scale**: `number` (default: 1) - Maximum score value.
+
+## measure() Parameters
+
+- **input**: `string` - The original query or prompt.
+- **output**: `string` - The LLM's response to evaluate.
+
+### Returns
+
+- **score**: `number` - Relevancy score (0 to scale, default 0-1).
+- **info**: `object` - Contains the reason for the score.
+  - **reason**: `string` - Explanation of the score.
+
+## Scoring Details
+
+Evaluates relevancy based on query-answer alignment, completeness, accuracy, and detail level.
+
+### Scoring Process
+
+1. **Statement Analysis**: Breaks output into meaningful statements.
+2. **Relevance Evaluation**:
+   - "yes": Full weight for direct matches.
+   - "unsure": Partial weight (default: 0.3) for approximate matches.
+   - "no": Zero weight for irrelevant content.
+3. **Final Score Calculation**: 
+   \[
+   \text{Final Score} = \left(\frac{\text{direct} + \text{uncertainty} \times \text{partial}}{\text{total statements}}\right) \times \text{scale}
+   \]
+
+### Score Interpretation
+
+- **1.0**: Perfect relevance.
+- **0.7-0.9**: High relevance.
+- **0.4-0.6**: Moderate relevance.
+- **0.1-0.3**: Low relevance.
+- **0.0**: No relevance.
+
+## Example with Custom Configuration
+
+```javascript
+import { openai } from "@ai-sdk/openai";
+import { AnswerRelevancyMetric } from "@mastra/evals/llm";
+
+// Configure the model for evaluation
+const model = openai("gpt-4o-mini");
+
+const metric = new AnswerRelevancyMetric(model, {
+  uncertaintyWeight: 0.5, // Higher weight for uncertain verdicts
+  scale: 5, // Use 0-5 scale instead of 0-1
+});
+
+const result = await metric.measure(
+  "What are the benefits of exercise?",
+  "Regular exercise improves cardiovascular health, builds strength, and boosts mental wellbeing."
+);
+
+// Example output
+// {
+//   score: 4.5,
+//   info: {
+//     reason: "The score is 4.5 out of 5 because the response directly addresses the query with specific, accurate benefits of exercise."
+//   }
+// }
+```
+
+## Related Metrics
+
+- Prompt Alignment Metric
+- Context Precision Metric
+- Faithfulness Metric
+
+_Last updated on February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/evals/bias
+----------------------------------------
+
+### BiasMetric Class Overview
+
+The `BiasMetric` class evaluates biases in LLM outputs, including gender, political, racial/ethnic, and geographical biases. It is useful for detecting unintended biases post model fine-tuning or optimization.
+
+#### Basic Usage
+
+```javascript
+import { openai } from "@ai-sdk/openai";
+import { BiasMetric } from "@mastra/evals/llm";
+
+// Configure the model for evaluation
+const model = openai("gpt-4o-mini");
+
+const metric = new BiasMetric(model, { scale: 1 });
+
+const result = await metric.measure(
+  "Describe leadership qualities in the workplace",
+  "Strong leaders are typically men who can make tough decisions..."
+);
+
+console.log(result.score); // Score from 0-1, higher means more biased
+```
+
+#### Constructor Parameters
+
+- **model**: `LanguageModel` - Configuration for the model used to evaluate bias.
+- **options**: `BiasMetricOptions` (optional) - Configuration options for the metric.
+  - **scale**: `number` (default: 1) - Maximum score value.
+
+#### measure() Method Parameters
+
+- **input**: `string` - The original query or prompt.
+- **output**: `string` - The LLM's response to evaluate.
+
+#### Returns
+
+- **score**: `number` - Bias score (0 to scale, default 0-1). Higher scores indicate more bias.
+- **info**: `object` - Contains the reason for the score.
+  - **reason**: `string` - Explanation of the score.
+
+#### Bias Categories
+
+1. **Gender Bias**: Discrimination based on gender.
+2. **Political Bias**: Prejudice against political ideologies.
+3. **Racial/Ethnic Bias**: Discrimination based on race or ethnicity.
+4. **Geographical Bias**: Prejudice based on location.
+
+#### Scoring Process
+
+1. **Opinion Extraction**: Identifies subjective statements, excludes factual claims.
+2. **Evaluation**: Checks for discriminatory language, stereotypes, and perspective balance.
+3. **Final Score Calculation**: 
+   \[
+   \text{Final Score} = \left(\frac{\text{biased\_opinions}}{\text{total\_opinions}}\right) \times \text{scale}
+   \]
+
+#### Score Interpretation
+
+- **1.0**: Complete bias
+- **0.7-0.9**: Significant bias
+- **0.4-0.6**: Moderate bias
+- **0.1-0.3**: Minimal bias
+- **0.0**: No detectable bias
+
+#### Example with Different Types of Bias
+
+```javascript
+const results = await Promise.all([
+  metric.measure(
+    "Describe voting patterns",
+    "These radical right-wing voters consistently vote against their interests..."
+  ),
+  metric.measure(
+    "Describe workplace dynamics",
+    "Modern offices have diverse teams working together based on merit..."
+  )
+]);
+
+// Example outputs:
+// Political bias example: { score: 1.0 }
+// Unbiased example: { score: 0.0 }
+```
+
+### Related Metrics
+
+- Toxicity Metric
+- Faithfulness Metric
+- Hallucination Metric
+- Context Relevancy Metric
+
+_Last updated on February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/evals/completeness
+----------------------------------------
+
+## CompletenessMetric Class
+
+The `CompletenessMetric` class evaluates the thoroughness of an LLM's output by analyzing coverage of key elements in the input text. It assesses nouns, verbs, topics, and terms to provide a completeness score.
+
+### Basic Usage
+
+```javascript
+import { CompletenessMetric } from "@mastra/evals/nlp";
+
+const metric = new CompletenessMetric();
+
+const result = await metric.measure(
+  "Explain how photosynthesis works in plants using sunlight, water, and carbon dioxide.",
+  "Plants use sunlight to convert water and carbon dioxide into glucose through photosynthesis."
+);
+
+console.log(result.score); // Coverage score (0-1)
+console.log(result.info);  // Detailed metrics about element coverage
+```
+
+### `measure()` Parameters
+
+- **input**: `string` - Original text with key elements to cover.
+- **output**: `string` - LLM's response to evaluate.
+
+### Returns
+
+- **score**: `number` - Completeness score (0-1).
+- **info**: `object` - Detailed metrics including:
+  - `inputElements`: `string[]` - Key elements from input.
+  - `outputElements`: `string[]` - Key elements found in output.
+  - `missingElements`: `string[]` - Input elements not found in output.
+  - `elementCounts`: `object` - Count of elements in input and output.
+
+### Element Extraction
+
+The metric extracts:
+- **Nouns**: Key objects and concepts.
+- **Verbs**: Actions (in infinitive form).
+- **Topics**: Main subjects.
+- **Terms**: Significant words.
+
+**Extraction Process**:
+- Normalizes text (lowercase, removes diacritics).
+- Splits camelCase words.
+- Handles word boundaries and short words (≤3 chars).
+- Deduplicates elements.
+
+### Scoring Details
+
+Completeness is evaluated through linguistic element coverage:
+1. Extracts key elements (nouns, verbs, topics).
+2. Calculates coverage of input elements:
+   - Exact matches for short terms.
+   - Substantial overlap for longer terms.
+
+**Final Score Calculation**:
+\[ \text{score} = \left(\frac{\text{covered\_elements}}{\text{total\_input\_elements}}\right) \times \text{scale} \]
+
+**Score Interpretation**:
+- **1.0**: Complete coverage.
+- **0.7-0.9**: High coverage.
+- **0.4-0.6**: Partial coverage.
+- **0.1-0.3**: Low coverage.
+- **0.0**: No coverage.
+
+### Example with Analysis
+
+```javascript
+import { CompletenessMetric } from "@mastra/evals/nlp";
+
+const metric = new CompletenessMetric();
+
+const result = await metric.measure(
+  "The quick brown fox jumps over the lazy dog",
+  "A brown fox jumped over a dog"
+);
+
+// Example output:
+// {
+//   score: 0.75,
+//   info: {
+//     inputElements: ["quick", "brown", "fox", "jump", "lazy", "dog"],
+//     outputElements: ["brown", "fox", "jump", "dog"],
+//     missingElements: ["quick", "lazy"],
+//     elementCounts: { input: 6, output: 4 }
+//   }
+// }
+```
+
+### Related Metrics
+
+- Answer Relevancy Metric
+- Content Similarity Metric
+- Textual Difference Metric
+- Keyword Coverage Metric
+
+_Last updated on February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/evals/content-similarity
+----------------------------------------
+
+### ContentSimilarityMetric Class
+
+**Overview**:  
+Measures textual similarity between two strings, returning a score (0-1) indicating their match level. Configurable for case sensitivity and whitespace handling.
+
+---
+
+#### Basic Usage
+
+```javascript
+import { ContentSimilarityMetric } from "@mastra/evals/nlp";
+
+const metric = new ContentSimilarityMetric({
+  ignoreCase: true,
+  ignoreWhitespace: true
+});
+
+const result = await metric.measure("Hello, world!", "hello world");
+
+console.log(result.score); // Similarity score (0-1)
+console.log(result.info);  // Detailed similarity metrics
+```
+
+---
+
+#### Constructor Parameters
+
+- **options**: `ContentSimilarityOptions` (default: `{ ignoreCase: true, ignoreWhitespace: true }`)
+  - **ignoreCase**: `boolean` (default: `true`) - Ignores case differences.
+  - **ignoreWhitespace**: `boolean` (default: `true`) - Normalizes whitespace.
+
+---
+
+#### measure() Method Parameters
+
+- **input**: `string` - Reference text for comparison.
+- **output**: `string` - Text to evaluate for similarity.
+
+**Returns**:
+- **score**: `number` - Similarity score (0-1).
+- **info**: `object` - Detailed metrics.
+  - **similarity**: `number` - Raw similarity score.
+
+---
+
+#### Scoring Details
+
+1. **Normalization**:
+   - Case and whitespace normalization based on options.
+  
+2. **Comparison**:
+   - Analyzes character sequences and aligns word boundaries.
+
+3. **Score Interpretation**:
+   - **1.0**: Perfect match
+   - **0.7-0.9**: High similarity
+   - **0.4-0.6**: Moderate similarity
+   - **0.1-0.3**: Low similarity
+   - **0.0**: No similarity
+
+---
+
+#### Example with Different Options
+
+**Case-Sensitive Comparison**:
+```javascript
+const caseSensitiveMetric = new ContentSimilarityMetric({
+  ignoreCase: false,
+  ignoreWhitespace: true
+});
+
+const result1 = await caseSensitiveMetric.measure("Hello World", "hello world");
+// Example output: { score: 0.75, info: { similarity: 0.75 } }
+```
+
+**Strict Whitespace Comparison**:
+```javascript
+const strictWhitespaceMetric = new ContentSimilarityMetric({
+  ignoreCase: true,
+  ignoreWhitespace: false
+});
+
+const result2 = await strictWhitespaceMetric.measure("Hello   World", "Hello World");
+// Example output: { score: 0.85, info: { similarity: 0.85 } }
+```
+
+---
+
+**Related Metrics**:
+- Completeness Metric
+- Textual Difference Metric
+- Answer Relevancy Metric
+- Keyword Coverage Metric
+
+**Last Updated**: February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/evals/context-position
+----------------------------------------
+
+# ContextPositionMetric Class
+
+The `ContextPositionMetric` class evaluates the ordering of context nodes based on their relevance to a query and output, using position-weighted scoring to prioritize earlier context pieces.
+
+## Basic Usage
+
+```javascript
+import { openai } from "@ai-sdk/openai";
+import { ContextPositionMetric } from "@mastra/evals/llm";
+
+// Configure the model for evaluation
+const model = openai("gpt-4o-mini");
+
+const metric = new ContextPositionMetric(model, {
+  context: [
+    "Photosynthesis is a biological process used by plants to create energy from sunlight.",
+    "The process of photosynthesis produces oxygen as a byproduct.",
+    "Plants need water and nutrients from the soil to grow.",
+  ],
+});
+
+const result = await metric.measure(
+  "What is photosynthesis?",
+  "Photosynthesis is the process by which plants convert sunlight into energy."
+);
+
+console.log(result.score); // Position score from 0-1
+console.log(result.info.reason); // Explanation of the score
+```
+
+## Constructor Parameters
+
+- **model**: `ModelConfig` - Configuration for the model used to evaluate context positioning.
+- **options**: `ContextPositionMetricOptions` - Configuration options for the metric.
+
+### ContextPositionMetricOptions
+
+- **scale**: `number` (default: 1) - Maximum score value.
+- **context**: `string[]` - Array of context pieces in retrieval order.
+
+## measure() Parameters
+
+- **input**: `string` - The original query or prompt.
+- **output**: `string` - The generated response to evaluate.
+
+### Returns
+
+- **score**: `number` - Position score (0 to scale, default 0-1).
+- **info**: `object` - Contains the reason for the score.
+  - **reason**: `string` - Detailed explanation of the score.
+
+## Scoring Details
+
+1. **Evaluates context relevance**:
+   - Assigns binary relevance (yes/no) to each context piece.
+   - Records position in sequence.
+   - Documents relevance reasoning.
+
+2. **Applies position weights**:
+   - Earlier positions weighted more heavily (weight = 1/(position + 1)).
+   - Sums weights of relevant pieces.
+   - Normalizes by maximum possible score.
+
+3. **Final score calculation**:
+   - `(weighted_sum / max_possible_sum) * scale`
+
+### Score Interpretation
+
+- **1.0**: Optimal - most relevant context first.
+- **0.7-0.9**: Good - relevant context mostly early.
+- **0.4-0.6**: Mixed - relevant context scattered.
+- **0.1-0.3**: Suboptimal - relevant context mostly later.
+- **0.0**: Poor - relevant context at end or missing.
+
+## Example with Analysis
+
+```javascript
+import { openai } from "@ai-sdk/openai";
+import { ContextPositionMetric } from "@mastra/evals/llm";
+
+// Configure the model for evaluation
+const model = openai("gpt-4o-mini");
+
+const metric = new ContextPositionMetric(model, {
+  context: [
+    "A balanced diet is important for health.",
+    "Exercise strengthens the heart and improves blood circulation.",
+    "Regular physical activity reduces stress and anxiety.",
+    "Exercise equipment can be expensive.",
+  ],
+});
+
+const result = await metric.measure(
+  "What are the benefits of exercise?",
+  "Regular exercise improves cardiovascular health and mental wellbeing."
+);
+
+// Example output:
+// {
+//   score: 0.5,
+//   info: {
+//     reason: "The score is 0.5 because while the second and third contexts are highly relevant to the benefits of exercise, they are not optimally positioned at the beginning of the sequence. The first and last contexts are not relevant to the query, which impacts the position-weighted scoring."
+//   }
+// }
+```
+
+## Related Metrics
+
+- Context Precision Metric
+- Answer Relevancy Metric
+- Completeness Metric
+- Context Relevancy Metric
+
+_Last updated on February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/evals/context-precision
+----------------------------------------
+
+### ContextPrecisionMetric Class
+
+The `ContextPrecisionMetric` class evaluates the relevance and precision of retrieved context nodes for generating expected outputs using a judge-based scoring system.
+
+#### Basic Usage
+
+```javascript
+import { openai } from "@ai-sdk/openai";
+import { ContextPrecisionMetric } from "@mastra/evals/llm";
+
+// Configure the model for evaluation
+const model = openai("gpt-4o-mini");
+
+const metric = new ContextPrecisionMetric(model, {
+  context: [
+    "Photosynthesis is a biological process used by plants to create energy from sunlight.",
+    "Plants need water and nutrients from the soil to grow.",
+    "The process of photosynthesis produces oxygen as a byproduct.",
+  ],
+});
+
+const result = await metric.measure(
+  "What is photosynthesis?",
+  "Photosynthesis is the process by which plants convert sunlight into energy."
+);
+
+console.log(result.score); // Precision score from 0-1
+console.log(result.info.reason); // Explanation of the score
+```
+
+#### Constructor Parameters
+
+- **model**: `LanguageModel` - Configuration for the model used to evaluate context relevance.
+- **options**: `ContextPrecisionMetricOptions` - Configuration options for the metric.
+
+##### ContextPrecisionMetricOptions
+
+- **scale**: `number` (default: 1) - Maximum score value.
+- **context**: `string[]` - Array of context pieces in retrieval order.
+
+#### measure() Method Parameters
+
+- **input**: `string` - Original query or prompt.
+- **output**: `string` - Generated response to evaluate.
+
+#### Returns
+
+- **score**: `number` - Precision score (0 to scale, default 0-1).
+- **info**: `object` - Contains the reason for the score.
+  - **reason**: `string` - Detailed explanation of the score.
+
+#### Scoring Details
+
+- **Binary Relevance Assessment**: 
+  - Relevant context: 1
+  - Irrelevant context: 0
+- **Mean Average Precision (MAP)**: 
+  - Computes precision at each position, weighting earlier positions more heavily, normalized to the configured scale.
+- **Final Score**: MAP * scale.
+
+#### Score Interpretation
+
+- **1.0**: All relevant context in optimal order.
+- **0.7-0.9**: Mostly relevant context with good ordering.
+- **0.4-0.6**: Mixed relevance or suboptimal ordering.
+- **0.1-0.3**: Limited relevance or poor ordering.
+- **0.0**: No relevant context.
+
+#### Example with Analysis
+
+```javascript
+import { openai } from "@ai-sdk/openai";
+import { ContextPrecisionMetric } from "@mastra/evals/llm";
+
+// Configure the model for evaluation
+const model = openai("gpt-4o-mini");
+
+const metric = new ContextPrecisionMetric(model, {
+  context: [
+    "Exercise strengthens the heart and improves blood circulation.",
+    "A balanced diet is important for health.",
+    "Regular physical activity reduces stress and anxiety.",
+    "Exercise equipment can be expensive.",
+  ],
+});
+
+const result = await metric.measure(
+  "What are the benefits of exercise?",
+  "Regular exercise improves cardiovascular health and mental wellbeing."
+);
+
+// Example output:
+// {
+//   score: 0.75,
+//   info: {
+//     reason: "The score is 0.75 because the first and third contexts are highly relevant to the benefits mentioned in the output, while the second and fourth contexts are not directly related to exercise benefits. The relevant contexts are well-positioned at the beginning and middle of the sequence."
+//   }
+// }
+```
+
+### Related Metrics
+
+- Answer Relevancy Metric
+- Context Position Metric
+- Completeness Metric
+- Context Relevancy Metric
+
+_Last updated on February 20, 2025._
+
+----------------------------------------
+https://mastra.ai/docs/reference/evals/context-relevancy
+----------------------------------------
+
+### ContextRelevancyMetric Class
+
+The `ContextRelevancyMetric` class evaluates the relevance of retrieved context in a Retrieval-Augmented Generation (RAG) pipeline using an LLM-based evaluation system.
+
+#### Basic Usage
+
+```javascript
+import { openai } from "@ai-sdk/openai";
+import { ContextRelevancyMetric } from "@mastra/evals/llm";
+
+// Configure the model for evaluation
+const model = openai("gpt-4o-mini");
+
+const metric = new ContextRelevancyMetric(model, {
+  context: [
+    "All data is encrypted at rest and in transit",
+    "Two-factor authentication is mandatory",
+    "The platform supports multiple languages",
+    "Our offices are located in San Francisco"
+  ]
+});
+
+const result = await metric.measure(
+  "What are our product's security features?",
+  "Our product uses encryption and requires 2FA."
+);
+
+console.log(result.score); // Score from 0-1
+console.log(result.info.reason); // Explanation of the relevancy assessment
+```
+
+#### Constructor Parameters
+
+- **model**: `LanguageModel` - Configuration for the model used to evaluate context relevancy.
+- **options**: `ContextRelevancyMetricOptions` - Configuration options for the metric.
+
+#### ContextRelevancyMetricOptions
+
+- **scale**: `number` (default = 1) - Maximum score value.
+- **context**: `string[]` - Array of retrieved context documents.
+
+#### measure() Parameters
+
+- **input**: `string` - Original query or prompt.
+- **output**: `string` - LLM's response to evaluate.
+
+#### Returns
+
+- **score**: `number` - Context relevancy score (0 to scale, default 0-1).
+- **info**: `object` - Contains the reason for the score.
+  - **reason**: `string` - Explanation of the relevancy assessment.
+
+#### Scoring Details
+
+- Evaluates relevance through binary classification.
+- Extracts statements from context and assesses their relevance to the query.
+- Final score calculation: `(relevant_statements / total_statements) * scale`.
+
+#### Score Interpretation
+
+- **1.0**: Perfect relevancy.
+- **0.7-0.9**: High relevancy.
+- **0.4-0.6**: Moderate relevancy.
+- **0.1-0.3**: Low relevancy.
+- **0.0**: No relevancy.
+
+#### Example with Custom Configuration
+
+```javascript
+import { openai } from "@ai-sdk/openai";
+import { ContextRelevancyMetric } from "@mastra/evals/llm";
+
+// Configure the model for evaluation
+const model = openai("gpt-4o-mini");
+
+const metric = new ContextRelevancyMetric(model, {
+  scale: 100, // Use 0-100 scale
+  context: [
+    "Basic plan costs $10/month",
+    "Pro plan includes advanced features at $30/month",
+    "Enterprise plan has custom pricing",
+    "Our company was founded in 2020",
+    "We have offices worldwide"
+  ]
+});
+
+const result = await metric.measure(
+  "What are our pricing plans?",
+  "We offer Basic, Pro, and Enterprise plans."
+);
+
+// Example output:
+// {
+//   score: 60,
+//   info: {
+//     reason: "3 out of 5 statements are relevant to pricing plans."
+//   }
+// }
+```
+
+### Related Metrics
+
+- Contextual Recall Metric
+- Context Precision Metric
+- Context Position Metric
+
+_Last updated on February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/evals/contextual-recall
+----------------------------------------
+
+### ContextualRecallMetric Class
+
+The `ContextualRecallMetric` class evaluates how well an LLM's response incorporates relevant information from provided context, focusing on completeness.
+
+#### Basic Usage
+
+```javascript
+import { openai } from "@ai-sdk/openai";
+import { ContextualRecallMetric } from "@mastra/evals/llm";
+
+// Configure the model for evaluation
+const model = openai("gpt-4o-mini");
+
+const metric = new ContextualRecallMetric(model, {
+  context: [
+    "Product features: cloud synchronization capability",
+    "Offline mode available for all users",
+    "Supports multiple devices simultaneously",
+    "End-to-end encryption for all data"
+  ]
+});
+
+const result = await metric.measure(
+  "What are the key features of the product?",
+  "The product includes cloud sync, offline mode, and multi-device support."
+);
+
+console.log(result.score); // Score from 0-1
+```
+
+#### Constructor Parameters
+
+- **model**: `LanguageModel` - Configuration for the model used to evaluate contextual recall.
+- **options**: `ContextualRecallMetricOptions` - Configuration options for the metric.
+
+##### ContextualRecallMetricOptions
+
+- **scale**: `number` (default: 1) - Maximum score value.
+- **context**: `string[]` - Array of reference documents or information to check against.
+
+#### measure() Parameters
+
+- **input**: `string` - The original query or prompt.
+- **output**: `string` - The LLM's response to evaluate.
+
+#### Returns
+
+- **score**: `number` - Recall score (0 to scale, default 0-1).
+- **info**: `object` - Contains the reason for the score.
+  - **reason**: `string` - Detailed explanation of the score.
+
+#### Scoring Details
+
+- Evaluates recall by comparing response content against relevant context items.
+- Final score calculation: 
+  \[
+  \text{score} = \left(\frac{\text{correctly\_recalled\_items}}{\text{total\_relevant\_items}}\right) \times \text{scale}
+  \]
+
+#### Score Interpretation
+
+- **1.0**: Perfect recall - all relevant information included.
+- **0.7-0.9**: High recall - most relevant information included.
+- **0.4-0.6**: Moderate recall - some relevant information missed.
+- **0.1-0.3**: Low recall - significant information missed.
+- **0.0**: No recall - no relevant information included.
+
+#### Example with Custom Configuration
+
+```javascript
+import { openai } from "@ai-sdk/openai";
+import { ContextualRecallMetric } from "@mastra/evals/llm";
+
+// Configure the model for evaluation
+const model = openai("gpt-4o-mini");
+
+const metric = new ContextualRecallMetric(model, {
+  scale: 100, // Use 0-100 scale instead of 0-1
+  context: [
+    "All data is encrypted at rest and in transit",
+    "Two-factor authentication (2FA) is mandatory",
+    "Regular security audits are performed",
+    "Incident response team available 24/7"
+  ]
+});
+
+const result = await metric.measure(
+  "Summarize the company's security measures",
+  "The company implements encryption for data protection and requires 2FA for all users."
+);
+
+// Example output:
+// {
+//   score: 50, // Only half of the security measures were mentioned
+//   info: {
+//     reason: "The score is 50 because only half of the security measures were mentioned in the response. The response missed the regular security audits and incident response team information."
+//   }
+// }
+```
+
+### Related Metrics
+
+- Context Relevancy Metric
+- Completeness Metric
+- Summarization Metric
+
+**Last updated on February 20, 2025**
+
+----------------------------------------
+https://mastra.ai/docs/reference/evals/faithfulness
+----------------------------------------
+
+### FaithfulnessMetric Overview
+
+The **FaithfulnessMetric** in Mastra evaluates the factual accuracy of an LLM's output against provided context. It extracts claims from the output and verifies them, making it essential for measuring the reliability of RAG pipeline responses.
+
+### Basic Usage
+
+```javascript
+import { openai } from "@ai-sdk/openai";
+import { FaithfulnessMetric } from "@mastra/evals/llm";
+
+// Configure the model for evaluation
+const model = openai("gpt-4o-mini");
+
+const metric = new FaithfulnessMetric(model, {
+  context: [
+    "The company was established in 1995.",
+    "Currently employs around 450-550 people.",
+  ],
+});
+
+const result = await metric.measure(
+  "Tell me about the company.",
+  "The company was founded in 1995 and has 500 employees."
+);
+
+console.log(result.score); // 1.0
+console.log(result.info.reason); // "All claims are supported by the context."
+```
+
+### Constructor Parameters
+
+- **model**: `LanguageModel` - Configuration for the model used to evaluate faithfulness.
+- **options**: `FaithfulnessMetricOptions` - Additional configuration options.
+
+#### FaithfulnessMetricOptions
+
+- **scale**: `number` (default = 1) - Maximum score value.
+- **context**: `string[]` - Array of context chunks for claim verification.
+
+### measure() Method Parameters
+
+- **input**: `string` - Original query or prompt.
+- **output**: `string` - LLM's response to evaluate.
+
+### Returns
+
+- **score**: `number` - Score (0 to configured scale) representing claims supported by context.
+- **info**: `object` - Explanation of the score.
+  - **reason**: `string` - Details on supported, contradicted, or unverifiable claims.
+
+### Scoring Process
+
+1. **Claim Analysis**:
+   - Extracts all claims (factual/speculative).
+   - Verifies each claim against context.
+   - Assigns verdicts: “yes”, “no”, or “unsure”.
+
+2. **Score Calculation**:
+   - Counts supported claims.
+   - Divides by total claims.
+   - Scales to configured range.
+
+**Final Score Formula**:  
+`(supported_claims / total_claims) * scale`
+
+### Score Interpretation
+
+- **1.0**: All claims supported.
+- **0.7-0.9**: Most claims supported, few unverifiable.
+- **0.4-0.6**: Mixed support with some contradictions.
+- **0.1-0.3**: Limited support, many contradictions.
+- **0.0**: No supported claims.
+
+### Advanced Example
+
+```javascript
+const metric = new FaithfulnessMetric(model, {
+  context: [
+    "The company had 100 employees in 2020.",
+    "Current employee count is approximately 500.",
+  ],
+});
+
+const result = await metric.measure(
+  "What's the company's growth like?",
+  "The company has grown from 100 employees in 2020 to 500 now, and might expand to 1000 by next year."
+);
+
+// Example output:
+// {
+//   score: 0.67,
+//   info: {
+//     reason: "The score is 0.67 because two claims are supported by the context (initial employee count of 100 in 2020 and current count of 500), while the future expansion claim is marked as unsure."
+//   }
+// }
+```
+
+### Related Metrics
+
+- Answer Relevancy Metric
+- Hallucination Metric
+- Context Relevancy Metric
+
+_Last updated on February 20, 2025._
+
+----------------------------------------
+https://mastra.ai/docs/reference/evals/hallucination
+----------------------------------------
+
+### HallucinationMetric Overview
+
+The **HallucinationMetric** evaluates the factual accuracy of an LLM's output by comparing it to a provided context. It identifies contradictions between the output and context to measure hallucination.
+
+### Basic Usage
+
+```javascript
+import { openai } from "@ai-sdk/openai";
+import { HallucinationMetric } from "@mastra/evals/llm";
+
+// Configure the model for evaluation
+const model = openai("gpt-4o-mini");
+
+const metric = new HallucinationMetric(model, {
+  context: [
+    "Tesla was founded in 2003 by Martin Eberhard and Marc Tarpenning in San Carlos, California.",
+  ],
+});
+
+const result = await metric.measure(
+  "Tell me about Tesla's founding.",
+  "Tesla was founded in 2004 by Elon Musk in California."
+);
+
+console.log(result.score); // Score from 0-1
+console.log(result.info.reason); // Explanation of the score
+```
+
+### Constructor Parameters
+
+- **model**: `LanguageModel` - Configuration for the model used to evaluate hallucination.
+- **options**: `HallucinationMetricOptions` - Configuration options for the metric.
+
+#### HallucinationMetricOptions
+
+- **scale**: `number` (default: 1) - Maximum score value.
+- **context**: `string[]` - Array of context pieces as the source of truth.
+
+### measure() Parameters
+
+- **input**: `string` - The original query or prompt.
+- **output**: `string` - The LLM's response to evaluate.
+
+### Returns
+
+- **score**: `number` - Hallucination score (0 to scale, default 0-1).
+- **info**: `object` - Contains the reason for the score.
+  - **reason**: `string` - Detailed explanation of the score and identified contradictions.
+
+### Scoring Process
+
+1. **Analyzes factual content**:
+   - Extracts statements from context.
+   - Identifies numerical values.
+   - Maps statement relationships.
+
+2. **Analyzes output for contradictions**:
+   - Compares against context statements.
+   - Marks direct conflicts as contradictions.
+   - Evaluates numerical accuracy.
+
+3. **Calculates hallucination score**:
+   - Counts contradicted statements.
+   - Divides by total statements.
+   - Scales to configured range.
+
+**Final Score Calculation**:
+\[ \text{score} = \left( \frac{\text{contradicted\_statements}}{\text{total\_statements}} \right) \times \text{scale} \]
+
+### Score Interpretation
+
+- **1.0**: Complete hallucination - contradicts all context statements.
+- **0.75**: High hallucination - contradicts 75% of context statements.
+- **0.5**: Moderate hallucination - contradicts half of context statements.
+- **0.25**: Low hallucination - contradicts 25% of context statements.
+- **0.0**: No hallucination - output aligns with all context statements.
+
+### Important Considerations
+
+- Speculative language does not count as contradictions.
+- Additional information beyond context is allowed unless it conflicts directly.
+- Empty outputs yield zero contradictions.
+- Numerical evaluations consider precision and contextual approximations.
+
+### Example with Analysis
+
+```javascript
+import { openai } from "@ai-sdk/openai";
+import { HallucinationMetric } from "@mastra/evals/llm";
+
+// Configure the model for evaluation
+const model = openai("gpt-4o-mini");
+
+const metric = new HallucinationMetric(model, {
+  context: [
+    "OpenAI was founded in December 2015 by Sam Altman, Greg Brockman, and others.",
+    "The company launched with a $1 billion investment commitment.",
+    "Elon Musk was an early supporter but left the board in 2018.",
+  ],
+});
+
+const result = await metric.measure({
+  input: "What are the key details about OpenAI?",
+  output: "OpenAI was founded in 2015 by Elon Musk and Sam Altman with a $2 billion investment.",
+});
+
+// Example output:
+// {
+//   score: 0.33,
+//   info: {
+//     reason: "The score is 0.33 because one out of three statements from the context was contradicted (the investment amount was stated as $2 billion instead of $1 billion). The founding date was correct, and while the output's description of founders was incomplete, it wasn't strictly contradictory."
+//   }
+// }
+```
+
+### Related Metrics
+
+- Faithfulness Metric
+- Answer Relevancy Metric
+- Context Precision Metric
+- Context Relevancy Metric
+
+_Last updated on February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/evals/keyword-coverage
+----------------------------------------
+
+### KeywordCoverageMetric Class
+
+The `KeywordCoverageMetric` class evaluates how well an LLM's output covers important keywords from the input, ignoring common words and stop words.
+
+#### Basic Usage
+
+```javascript
+import { KeywordCoverageMetric } from "@mastra/evals/nlp";
+
+const metric = new KeywordCoverageMetric();
+
+const result = await metric.measure(
+  "What are the key features of Python programming language?",
+  "Python is a high-level programming language known for its simple syntax and extensive libraries."
+);
+
+console.log(result.score); // Coverage score from 0-1
+console.log(result.info);  // Detailed metrics about keyword coverage
+```
+
+#### `measure()` Parameters
+
+- **input**: `string` - Original text containing keywords to match.
+- **output**: `string` - Text to evaluate for keyword coverage.
+
+#### Returns
+
+- **score**: `number` - Coverage score (0-1) representing matched keywords proportion.
+- **info**: `object` - Contains detailed metrics:
+  - **matchedKeywords**: `number` - Number of keywords found in the output.
+  - **totalKeywords**: `number` - Total number of keywords from the input.
+
+#### Scoring Details
+
+- Filters out common words and stop words.
+- Case-insensitive matching.
+- Handles word form variations and technical terms.
+
+#### Scoring Process
+
+1. **Keyword Processing**:
+   - Filters common words and stop words.
+   - Normalizes case and word forms.
+   - Handles special terms and compounds.
+
+2. **Coverage Calculation**:
+   - Matches keywords between texts.
+   - Counts successful matches.
+   - Computes coverage ratio.
+
+**Final Score Calculation**:  
+`(matched_keywords / total_keywords) * scale`  
+**Score Interpretation**:
+- **1.0**: Perfect coverage
+- **0.7-0.9**: Good coverage
+- **0.4-0.6**: Moderate coverage
+- **0.1-0.3**: Poor coverage
+- **0.0**: No matches
+
+#### Examples
+
+1. **Perfect Coverage**:
+   ```javascript
+   const result1 = await metric.measure(
+     "The quick brown fox jumps over the lazy dog",
+     "A quick brown fox jumped over a lazy dog"
+   );
+   // { score: 1.0, info: { matchedKeywords: 6, totalKeywords: 6 } }
+   ```
+
+2. **Partial Coverage**:
+   ```javascript
+   const result2 = await metric.measure(
+     "Python features include easy syntax, dynamic typing, and extensive libraries",
+     "Python has simple syntax and many libraries"
+   );
+   // { score: 0.67, info: { matchedKeywords: 4, totalKeywords: 6 } }
+   ```
+
+3. **Technical Terms**:
+   ```javascript
+   const result3 = await metric.measure(
+     "Discuss React.js component lifecycle and state management",
+     "React components have lifecycle methods and manage state"
+   );
+   // { score: 1.0, info: { matchedKeywords: 4, totalKeywords: 4 } }
+   ```
+
+#### Special Cases
+
+- Returns **1.0** if both input/output are empty; **0.0** if one is empty.
+- Single words treated as keywords.
+- Preserves compound technical terms (e.g., "React.js").
+- Case differences are ignored (e.g., "JavaScript" matches "javascript").
+- Common words are excluded from scoring.
+
+### Related Metrics
+
+- Completeness Metric
+- Content Similarity Metric
+- Answer Relevancy Metric
+- Textual Difference Metric
+- Context Relevancy Metric
+
+_Last updated on February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/evals/prompt-alignment
+----------------------------------------
+
+### PromptAlignmentMetric Class
+
+The `PromptAlignmentMetric` class evaluates how well an LLM's output adheres to specified prompt instructions using a judge-based system. It provides detailed reasoning for any deviations.
+
+#### Basic Usage
+
+```javascript
+import { openai } from "@ai-sdk/openai";
+import { PromptAlignmentMetric } from "@mastra/evals/llm";
+
+// Configure the model for evaluation
+const model = openai("gpt-4o-mini");
+
+const instructions = [
+  "Start sentences with capital letters",
+  "End each sentence with a period",
+  "Use present tense",
+];
+
+const metric = new PromptAlignmentMetric(model, {
+  instructions,
+  scale: 1,
+});
+
+const result = await metric.measure(
+  "describe the weather",
+  "The sun is shining. Clouds float in the sky. A gentle breeze blows."
+);
+
+console.log(result.score); // Alignment score from 0-1
+console.log(result.info.reason); // Explanation of the score
+```
+
+#### Constructor Parameters
+
+- **model**: `LanguageModel` - Configuration for the model used to evaluate instruction alignment.
+- **options**: `PromptAlignmentOptions` - Configuration options for the metric.
+
+##### PromptAlignmentOptions
+
+- **instructions**: `string[]` - Array of instructions the output should follow.
+- **scale**: `number` (optional, default = 1) - Maximum score value.
+
+#### measure() Parameters
+
+- **input**: `string` - The original prompt or query.
+- **output**: `string` - The LLM's response to evaluate.
+
+#### Returns
+
+- **score**: `number` - Alignment score (0 to scale, default 0-1).
+- **info**: `object` - Contains detailed metrics about instruction compliance.
+  - **reason**: `string` - Detailed explanation of the score and instruction compliance.
+
+#### Scoring Details
+
+- Evaluates instruction applicability and compliance.
+- Each instruction receives one of three verdicts: 
+  - **“yes”**: Instruction is applicable and followed.
+  - **“no”**: Instruction is applicable but not followed.
+  - **“n/a”**: Instruction is not applicable.
+
+#### Scoring Process
+
+1. **Evaluates instruction applicability**: Marks irrelevant instructions as “n/a”.
+2. **Assesses compliance**: Requires complete compliance for a “yes” verdict.
+3. **Calculates alignment score**: 
+   - Final score = (followed_instructions / applicable_instructions) * scale.
+
+#### Important Considerations
+
+- **Empty outputs**: All formatting instructions are applicable and marked as “no”.
+- **Domain-specific instructions**: Always applicable if relevant to the queried domain.
+- **“n/a” verdicts**: Used for completely different domains and do not affect the score.
+
+#### Score Interpretation
+
+- **1.0**: All applicable instructions followed.
+- **0.7-0.9**: Most applicable instructions followed.
+- **0.4-0.6**: Mixed compliance.
+- **0.1-0.3**: Limited compliance.
+- **0.0**: No applicable instructions followed.
+
+#### Example with Analysis
+
+```javascript
+const result = await metric.measure(
+  "List three fruits",
+  "• Apple is red and sweet; • Banana is yellow and curved; • Orange is citrus and round."
+);
+
+// Example output:
+// {
+//   score: 1.0,
+//   info: {
+//     reason: "All instructions were followed exactly."
+//   }
+// }
+
+const result2 = await metric.measure(
+  "List three fruits",
+  "1. Apple 2. Banana 3. Orange and Grape"
+);
+
+// Example output:
+// {
+//   score: 0.33,
+//   info: {
+//     reason: "Numbered lists were used instead of bullet points."
+//   }
+// }
+```
+
+### Related Metrics
+
+- Answer Relevancy Metric
+- Keyword Coverage Metric
+
+_Last updated on February 20, 2025._
+
+----------------------------------------
+https://mastra.ai/docs/reference/evals/summarization
+----------------------------------------
+
+# SummarizationMetric Documentation
+
+## Overview
+The **SummarizationMetric** evaluates the effectiveness of an LLM’s summary by assessing two key aspects: **alignment** (factual correctness) and **coverage** (inclusion of key information). The final score is determined by the minimum of these two scores.
+
+## Basic Usage
+
+```javascript
+import { openai } from "@ai-sdk/openai";
+import { SummarizationMetric } from "@mastra/evals/llm";
+
+// Configure the model for evaluation
+const model = openai("gpt-4o-mini");
+const metric = new SummarizationMetric(model);
+
+// Measure the summary
+const result = await metric.measure(
+  "The company was founded in 1995 by John Smith. It started with 10 employees and grew to 500 by 2020. The company is based in Seattle.",
+  "Founded in 1995 by John Smith, the company grew from 10 to 500 employees by 2020."
+);
+
+console.log(result.score); // Score from 0-1
+console.log(result.info);  // Detailed metrics about the summary
+```
+
+## Constructor Parameters
+
+- **model**: `LanguageModel` - Configuration for the model used to evaluate summaries.
+- **options**: `SummarizationMetricOptions` (optional) - Configuration options for the metric.
+  - **scale**: `number` (default: 1) - Maximum score value.
+
+## measure() Parameters
+
+- **input**: `string` - The original text to be summarized.
+- **output**: `string` - The generated summary to evaluate.
+
+### Returns
+
+- **score**: `number` - Summarization score (0 to scale, default 0-1).
+- **info**: `object` - Detailed metrics about the summary.
+  - **reason**: `string` - Explanation of the score, including alignment and coverage.
+  - **alignmentScore**: `number` - Alignment score (0 to 1).
+  - **coverageScore**: `number` - Coverage score (0 to 1).
+
+## Scoring Details
+
+### Alignment Score
+- Measures factual correctness by verifying claims from the summary against the original text.
+
+### Coverage Score
+- Measures inclusion of key information by generating questions from the original text and checking if the summary answers them.
+
+### Scoring Process
+1. **Alignment Score Calculation**:
+   - Extract claims from the summary.
+   - Verify against the source text.
+   - Compute: `supported_claims / total_claims`.
+
+2. **Coverage Score Calculation**:
+   - Generate questions from the source.
+   - Check summary for answers.
+   - Evaluate completeness: `answerable_questions / total_questions`.
+
+3. **Final Score**: `min(alignment_score, coverage_score) * scale`.
+
+### Score Interpretation
+- **1.0**: Perfect summary.
+- **0.7-0.9**: Strong summary with minor issues.
+- **0.4-0.6**: Moderate quality with significant gaps.
+- **0.1-0.3**: Poor summary with major omissions.
+- **0.0**: Invalid summary.
+
+## Example with Analysis
+
+```javascript
+import { openai } from "@ai-sdk/openai";
+import { SummarizationMetric } from "@mastra/evals/llm";
+
+// Configure the model for evaluation
+const model = openai("gpt-4o-mini");
+const metric = new SummarizationMetric(model);
+
+// Measure the summary
+const result = await metric.measure(
+  "The electric car company Tesla was founded in 2003 by Martin Eberhard and Marc Tarpenning. Elon Musk joined in 2004 as the largest investor and became CEO in 2008. The company's first car, the Roadster, was launched in 2008.",
+  "Tesla, founded by Elon Musk in 2003, revolutionized the electric car industry starting with the Roadster in 2008."
+);
+
+// Example output
+// {
+//   score: 0.5,
+//   info: {
+//     reason: "The score is 0.5 because while the coverage is good (0.75) - mentioning the founding year, first car model, and launch date - the alignment score is lower (0.5) due to incorrectly attributing the company's founding to Elon Musk instead of Martin Eberhard and Marc Tarpenning.",
+//     alignmentScore: 0.5,
+//     coverageScore: 0.75,
+//   }
+// }
+```
+
+## Related Metrics
+- Faithfulness Metric
+- Completeness Metric
+- Contextual Recall Metric
+- Hallucination Metric
+
+_Last updated on February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/evals/textual-difference
+----------------------------------------
+
+### TextualDifferenceMetric Class
+
+The `TextualDifferenceMetric` class measures textual differences between two strings using sequence matching. It provides detailed metrics on the changes required to transform one text into another.
+
+#### Basic Usage
+
+```javascript
+import { TextualDifferenceMetric } from "@mastra/evals/nlp";
+
+const metric = new TextualDifferenceMetric();
+
+const result = await metric.measure(
+  "The quick brown fox",
+  "The fast brown fox"
+);
+
+console.log(result.score); // Similarity ratio (0-1)
+console.log(result.info);  // Detailed change metrics
+```
+
+#### `measure()` Method
+
+**Parameters:**
+- `input` (string): Original text to compare.
+- `output` (string): Text to evaluate for differences.
+
+**Returns:**
+- `score` (number): Similarity ratio (0-1).
+- `info` (object):
+  - `confidence` (number): Confidence score based on length difference (0-1).
+  - `ratio` (number): Raw similarity ratio.
+  - `changes` (number): Count of change operations (insertions, deletions, replacements).
+  - `lengthDiff` (number): Normalized length difference (0-1).
+
+#### Scoring Details
+
+- **Similarity Ratio**: Measures textual similarity (0-1).
+- **Changes**: Counts non-matching operations.
+- **Length Difference**: Normalized length difference.
+- **Confidence**: Inversely proportional to length difference.
+
+**Final Score Calculation:**
+```plaintext
+Final Score = (similarity_ratio * confidence) * scale
+```
+
+**Score Interpretation:**
+- `1.0`: Identical texts.
+- `0.7-0.9`: Minor differences.
+- `0.4-0.6`: Moderate differences.
+- `0.1-0.3`: Major differences.
+- `0.0`: Completely different texts.
+
+#### Example with Analysis
+
+```javascript
+import { TextualDifferenceMetric } from "@mastra/evals/nlp";
+
+const metric = new TextualDifferenceMetric();
+
+const result = await metric.measure(
+  "Hello world! How are you?",
+  "Hello there! How is it going?"
+);
+
+// Example output:
+// {
+//   score: 0.65,
+//   info: {
+//     confidence: 0.95,
+//     ratio: 0.65,
+//     changes: 2,
+//     lengthDiff: 0.05
+//   }
+// }
+```
+
+### Related Metrics
+- Content Similarity Metric
+- Completeness Metric
+- Keyword Coverage Metric
+
+_Last updated on February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/evals/tone-consistency
+----------------------------------------
+
+## ToneConsistencyMetric Class
+
+The `ToneConsistencyMetric` class evaluates the emotional tone and sentiment consistency of text. It operates in two modes: tone comparison between input/output pairs and tone stability analysis within a single text.
+
+### Basic Usage
+
+```javascript
+import { ToneConsistencyMetric } from "@mastra/evals/nlp";
+
+const metric = new ToneConsistencyMetric();
+
+// Compare tone between input and output
+const result1 = await metric.measure(
+  "I love this amazing product!",
+  "This product is wonderful and fantastic!"
+);
+
+// Analyze tone stability in a single text
+const result2 = await metric.measure(
+  "The service is excellent. The staff is friendly. The atmosphere is perfect.",
+  "" // Empty string for single-text analysis
+);
+
+console.log(result1.score); // Tone consistency score (0-1)
+console.log(result2.score); // Tone stability score (0-1)
+```
+
+### `measure()` Parameters
+
+- **input**: `string` - Text to analyze for tone.
+- **output**: `string` - Reference text for tone comparison (empty string for stability analysis).
+
+### Returns
+
+- **score**: `number` - Tone consistency/stability score (0-1).
+- **info**: `object` - Detailed tone information.
+
+#### Info Object (Tone Comparison)
+
+- **responseSentiment**: `number` - Sentiment score for input text.
+- **referenceSentiment**: `number` - Sentiment score for output text.
+- **difference**: `number` - Absolute difference between sentiment scores.
+
+#### Info Object (Tone Stability)
+
+- **avgSentiment**: `number` - Average sentiment score across sentences.
+- **sentimentVariance**: `number` - Variance in sentiment between sentences.
+
+### Scoring Details
+
+The metric evaluates sentiment consistency through tone pattern analysis and mode-specific scoring:
+
+1. **Tone Consistency** (input and output):
+   - Compares sentiment between texts.
+   - Score = 1 - (sentiment_difference / max_difference).
+
+2. **Tone Stability** (single input):
+   - Analyzes sentiment across sentences.
+   - Score = 1 - (sentiment_variance / max_variance).
+
+### Score Interpretation
+
+- **1.0**: Perfect tone consistency/stability
+- **0.7-0.9**: Strong consistency with minor variations
+- **0.4-0.6**: Moderate consistency with noticeable shifts
+- **0.1-0.3**: Poor consistency with major tone changes
+- **0.0**: No consistency - completely different tones
+
+### Example Outputs
+
+#### Tone Consistency Mode
+
+```javascript
+const consistencyResult = await metric.measure(
+  "This product is fantastic and amazing!",
+  "The product is excellent and wonderful!"
+);
+
+// Example output:
+// {
+//   score: 0.95,
+//   info: {
+//     responseSentiment: 0.8,
+//     referenceSentiment: 0.75,
+//     difference: 0.05
+//   }
+// }
+```
+
+#### Tone Stability Mode
+
+```javascript
+const stabilityResult = await metric.measure(
+  "Great service! Friendly staff. Perfect atmosphere.",
+  ""
+);
+
+// Example output:
+// {
+//   score: 0.9,
+//   info: {
+//     avgSentiment: 0.6,
+//     sentimentVariance: 0.1
+//   }
+// }
+```
+
+### Related Metrics
+
+- Content Similarity Metric
+- Toxicity Metric
+
+_Last updated on February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/evals/toxicity
+----------------------------------------
+
+### ToxicityMetric Class Overview
+
+The **ToxicityMetric** class evaluates the presence of toxic elements in an LLM's output, including racism, bias, personal attacks, mockery, hate speech, dismissive statements, and threats.
+
+#### Basic Usage
+
+```javascript
+import { openai } from "@ai-sdk/openai";
+import { ToxicityMetric } from "@mastra/evals/llm";
+
+// Configure the model for evaluation
+const model = openai("gpt-4o-mini");
+
+const metric = new ToxicityMetric(model, {
+  scale: 1, // Default scale is 0-1
+});
+
+const result = await metric.measure(
+  "How is Sarah as a person?",
+  "Sarah is a dedicated team member who always delivers quality work."
+);
+
+console.log(result.score); // Score from 0-1 (0 = not toxic, 1 = toxic)
+console.log(result.info.reason); // Explanation of the toxicity assessment
+```
+
+#### Constructor Parameters
+
+- **model**: `LanguageModel` - Configuration for the model used to evaluate toxicity.
+- **options**: `ToxicityMetricOptions` (optional) - Configuration options for the metric.
+  - **scale**: `number` (default: 1) - Maximum score value.
+
+#### measure() Parameters
+
+- **input**: `string` - The original query or prompt.
+- **output**: `string` - The LLM's response to evaluate.
+
+#### Returns
+
+- **score**: `number` - Toxicity score (0 to scale, default 0-1).
+- **info**: `object` - Detailed toxicity information.
+  - **reason**: `string` - Explanation of the toxicity assessment.
+
+#### Scoring Details
+
+The metric evaluates toxicity through:
+- Personal attacks
+- Mockery or sarcasm
+- Hate speech
+- Dismissive statements
+- Threats or intimidation
+
+**Scoring Process**:
+1. Analyzes toxic elements.
+2. Calculates a weighted toxicity score.
+3. Normalizes to the defined scale.
+
+**Score Interpretation**:
+- 0.8-1.0: Severe toxicity
+- 0.4-0.7: Moderate toxicity
+- 0.1-0.3: Mild toxicity
+- 0.0: No toxic elements detected
+
+#### Example with Custom Configuration
+
+```javascript
+import { openai } from "@ai-sdk/openai";
+
+const model = openai("gpt-4o-mini");
+
+const metric = new ToxicityMetric(model, {
+  scale: 10, // Use 0-10 scale instead of 0-1
+});
+
+const result = await metric.measure(
+  "What do you think about the new team member?",
+  "The new team member shows promise but needs significant improvement in basic skills."
+);
+```
+
+### Related Metrics
+- Tone Consistency Metric
+- Bias Metric
+
+_Last updated on February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/memory/Memory
+----------------------------------------
+
+### Memory Class Overview
+
+The **Memory** class in Mastra manages conversation history and message storage, offering persistent storage, semantic search, and efficient retrieval. It defaults to using **LibSQL** for storage and vector search, and **FastEmbed** for embeddings.
+
+### Basic Usage
+
+```javascript
+import { Memory } from "@mastra/memory";
+import { Agent } from "@mastra/core/agent";
+
+const agent = new Agent({
+  memory: new Memory(),
+  // ...otherOptions
+});
+```
+
+### Custom Configuration
+
+```javascript
+import { Memory } from "@mastra/memory";
+import { DefaultStorage, DefaultVectorDB } from "@mastra/core/storage";
+import { Agent } from "@mastra/core/agent";
+
+const memory = new Memory({
+  storage: new DefaultStorage({ url: "file:memory.db" }),
+  vector: new DefaultVectorDB({ url: "file:vector.db" }),
+  options: {
+    lastMessages: 20,
+    semanticRecall: {
+      topK: 3,
+      messageRange: { before: 2, after: 1 },
+    },
+    workingMemory: {
+      enabled: true,
+      template: "<user><first_name></first_name><last_name></last_name></user>",
+    },
+  },
+});
+
+const agent = new Agent({
+  memory,
+  // ...otherOptions
+});
+```
+
+### Parameters
+
+- **storage**: `MastraStorage` - Storage implementation for memory data.
+- **vector**: `MastraVector` (optional) - Vector store for semantic search.
+- **embedder**: `EmbeddingModel` (optional) - Embedder instance, defaults to FastEmbed (bge-small-en-v1.5).
+- **options**: `MemoryConfig` (optional) - General memory configuration options.
+
+#### Options
+
+- **lastMessages**: `number | false` (default: 40) - Recent messages to retrieve; set to false to disable.
+- **semanticRecall**: `boolean | SemanticRecallConfig` (default: false) - Enable semantic search; auto-enabled with vector store.
+- **topK**: `number` (default: 2) - Similar messages to retrieve in semantic search.
+- **messageRange**: `number | { before: number; after: number }` (default: 2) - Range of messages around search results.
+- **workingMemory**: `{ enabled: boolean; template: string }` (default: { enabled: false, template: '<user>...</user>' }) - Configuration for persistent user information.
+
+### Working Memory
+
+The working memory feature allows agents to retain information across conversations. It manages XML-based updates automatically. If no template is provided, a default template is used.
+
+### Embedder
+
+By default, the Memory class uses **FastEmbed** with the **bge-small-en-v1.5** model. Specify an embedder only if a different model is desired.
+
+### Additional Notes
+
+When configuring vector search, ensure both the vector store and search options are set correctly.
+
+```javascript
+const memory = new Memory({
+  storage: new DefaultStorage({ url: ":memory:" }),
+  vector: new DefaultVectorDB({ url: ":memory:" }),
+  options: {
+    semanticRecall: {
+      topK: 5,
+      messageRange: 2,
+    },
+  },
+});
+```
+
+### Related Methods
+
+- **createThread**
+- **query**
+
+_Last updated on February 20, 2025._
+
+----------------------------------------
+https://mastra.ai/docs/reference/memory/createThread
+----------------------------------------
+
+### Memory.createThread()
+
+**Description:**  
+Creates a new conversation thread in the memory system, representing a distinct conversation or context with multiple messages.
+
+**Usage Example:**
+```javascript
+import { Memory } from "@mastra/memory";
+
+const memory = new Memory({ /* config */ });
+
+const thread = await memory.createThread({
+  resourceId: "user-123",
+  title: "Support Conversation",
+  metadata: {
+    category: "support",
+    priority: "high"
+  }
+});
+```
+
+**Parameters:**
+- **resourceId**: `string` - Identifier for the resource (e.g., user ID).
+- **threadId**: `string?` - Optional custom ID for the thread.
+- **title**: `string?` - Optional title for the thread.
+- **metadata**: `Record<string, unknown>?` - Optional metadata associated with the thread.
+
+**Returns:**
+- **id**: `string` - Unique identifier of the created thread.
+- **resourceId**: `string` - Resource ID associated with the thread.
+- **title**: `string` - Title of the thread (if provided).
+- **createdAt**: `Date` - Timestamp when the thread was created.
+- **updatedAt**: `Date` - Timestamp when the thread was last updated.
+- **metadata**: `Record<string, unknown>` - Additional metadata associated with the thread.
+
+**Related Methods:**
+- Memory.getThreadById
+- Memory.getThreadsByResourceId
+
+**Last Updated:** February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/memory/getThreadById
+----------------------------------------
+
+### API Method: `getThreadById()`
+
+**Description:**  
+Retrieves a specific thread by its ID from storage.
+
+**Parameters:**  
+- `threadId` (string): The ID of the thread to retrieve.
+
+**Returns:**  
+- `Promise<StorageThreadType | null>`: Resolves to the thread associated with the given ID, or `null` if not found.
+
+**Usage Example:**
+```javascript
+import { Memory } from "@mastra/core/memory";
+
+const memory = new Memory(config);
+const thread = await memory.getThreadById({ threadId: "thread-123" });
+```
+
+**Related Methods:**  
+- `Memory.query()`
+- `Memory.getThreadsByResourceId()`
+
+**Last Updated:** February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/memory/getThreadsByResourceId
+----------------------------------------
+
+### API Method: `getThreadsByResourceId()`
+
+**Description**: Retrieves all threads associated with a specific resource ID from storage.
+
+**Usage Example**:
+```javascript
+import { Memory } from "@mastra/core/memory";
+
+const memory = new Memory(config);
+const threads = await memory.getThreadsByResourceId({
+  resourceId: "resource-123",
+});
+```
+
+**Parameters**:
+- `resourceId` (string): The ID of the resource whose threads are to be retrieved.
+
+**Returns**:
+- `Promise<StorageThreadType[]>`: A promise that resolves to an array of threads associated with the given resource ID.
+
+**Related Methods**: 
+- `getThreadById()`
+- `chunk()`
+
+**Last Updated**: February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/memory/query
+----------------------------------------
+
+### Memory.query() Method
+
+**Description:**  
+Retrieves messages from a specific thread with pagination and filtering options.
+
+**Usage Example:**
+
+```javascript
+import { Memory } from "@mastra/memory";
+
+const memory = new Memory({ /* config */ });
+
+// Get last 50 messages
+const { messages, uiMessages } = await memory.query({
+  threadId: "thread-123",
+  selectBy: { last: 50 },
+});
+
+// Get messages with context around specific messages
+const { messages: contextMessages } = await memory.query({
+  threadId: "thread-123",
+  selectBy: {
+    include: [
+      { id: "msg-123" }, // Get just this message (no context)
+      {
+        id: "msg-456", // Get this message with custom context
+        withPreviousMessages: 3, // 3 messages before
+        withNextMessages: 1, // 1 message after
+      },
+    ],
+  },
+});
+
+// Semantic search in messages
+const { messages } = await memory.query({
+  threadId: "thread-123",
+  selectBy: { vectorSearchString: "What was discussed about deployment?" },
+  threadConfig: { historySearch: true },
+});
+```
+
+**Parameters:**
+
+- **threadId**: `string` - Unique identifier of the thread.
+- **selectBy**: `object` - Options for filtering messages.
+  - **vectorSearchString**: `string` - Search string for semantically similar messages.
+  - **last**: `number | false` - Number of recent messages to retrieve (default: 40).
+  - **include**: `array` - Array of message IDs to include with context.
+    - **id**: `string` - ID of the message.
+    - **withPreviousMessages**: `number` - Messages before this message (default: 2 for vector search).
+    - **withNextMessages**: `number` - Messages after this message (default: 2 for vector search).
+- **threadConfig**: `MemoryConfig` - Configuration options for message retrieval.
+
+**Returns:**
+
+- **messages**: `CoreMessage[]` - Array of retrieved messages in core format.
+- **uiMessages**: `AiMessage[]` - Formatted messages for UI display.
+
+**Notes:**  
+The `query` function returns two formats: 
+- `messages`: Core format for internal use.
+- `uiMessages`: Formatted for UI, including proper threading of tool calls and results.
+
+----------------------------------------
+https://mastra.ai/docs/reference/observability/create-logger
+----------------------------------------
+
+### createLogger() Function
+
+The `createLogger()` function instantiates a logger based on specified configurations, supporting console, file, or Upstash Redis loggers.
+
+#### Usage Examples
+
+1. **Console Logger (Development)**
+   ```javascript
+   const consoleLogger = createLogger({ 
+       name: "Mastra", 
+       level: "debug" 
+   });
+
+   consoleLogger.info("App started");
+   ```
+
+2. **File Transport (Structured Logs)**
+   ```javascript
+   import { FileTransport } from "@mastra/loggers/file";
+
+   const fileLogger = createLogger({
+       name: "Mastra",
+       transports: { 
+           file: new FileTransport({ path: "test-dir/test.log" }) 
+       },
+       level: "warn",
+   });
+
+   fileLogger.warn("Low disk space", {
+       destinationPath: "system",
+       type: "WORKFLOW",
+   });
+   ```
+
+3. **Upstash Logger (Remote Log Drain)**
+   ```javascript
+   import { UpstashTransport } from "@mastra/loggers/upstash";
+
+   const logger = createLogger({
+       name: "Mastra",
+       transports: {
+           upstash: new UpstashTransport({
+               listName: "production-logs",
+               upstashUrl: process.env.UPSTASH_URL!,
+               upstashToken: process.env.UPSTASH_TOKEN!,
+           }),
+       },
+       level: "info",
+   });
+
+   logger.info({
+       message: "User signed in",
+       destinationPath: "auth",
+       type: "AGENT",
+       runId: "run_123",
+   });
+   ```
+
+#### Parameters
+- **type**: Specifies the logger implementation to create.
+- **level** (optional): Minimum severity level of logs (DEBUG, INFO, WARN, ERROR).
+- **dirPath** (optional): Directory path for log files (default: "logs", for FILE type).
+- **url** (optional): Upstash Redis endpoint URL (for UPSTASH type).
+- **token** (optional): Upstash Redis access token (for UPSTASH type).
+- **key** (optional): Redis list key for storing logs (for UPSTASH type).
+
+_Last updated on February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/observability/logger
+----------------------------------------
+
+### Logger Instance Documentation
+
+A Logger instance is created using `createLogger()` and allows recording events at various severity levels. Logs can be directed to the console, file, or external services depending on the logger type.
+
+#### Example Usage
+
+```javascript
+// Using a console logger
+const logger = createLogger({ name: 'Mastra', level: 'info' });
+
+logger.debug('Debug message'); 
+// Won't be logged because level is INFO
+
+logger.info({ message: 'User action occurred', destinationPath: 'user-actions', type: 'AGENT' }); 
+// Logged
+
+logger.error('An error occurred'); 
+// Logged as ERROR
+```
+
+#### Logger Methods
+
+- **debug(message: BaseLogMessage | string, ...args: any[]): void | Promise<void>**
+  - Logs a DEBUG-level message. Recorded if level ≤ DEBUG.
+
+- **info(message: BaseLogMessage | string, ...args: any[]): void | Promise<void>**
+  - Logs an INFO-level message. Recorded if level ≤ INFO.
+
+- **warn(message: BaseLogMessage | string, ...args: any[]): void | Promise<void>**
+  - Logs a WARN-level message. Recorded if level ≤ WARN.
+
+- **error(message: BaseLogMessage | string, ...args: any[]): void | Promise<void>**
+  - Logs an ERROR-level message. Recorded if level ≤ ERROR.
+
+- **cleanup?(): Promise<void>**
+  - Cleans up resources held by the logger (e.g., network connections). Not all loggers implement this.
+
+#### Note
+Some loggers require a `BaseLogMessage` object with `message`, `destinationPath`, and `type` fields, particularly the File and Upstash loggers, which need structured messages. 
+
+_Last updated on February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/observability/otel-config
+----------------------------------------
+
+### OtelConfig Overview
+
+The `OtelConfig` object configures OpenTelemetry instrumentation, tracing, and exporting behavior in applications. Adjust its properties to control telemetry data collection, sampling, and export.
+
+### Usage in Mastra
+
+To use `OtelConfig` in Mastra, pass it as the value of the `telemetry` key during initialization.
+
+```javascript
+import { Mastra } from 'mastra';
+
+const otelConfig: OtelConfig = {
+  serviceName: 'my-awesome-service',
+  enabled: true,
+  sampling: {
+    type: 'ratio',
+    probability: 0.5,
+  },
+  export: {
+    type: 'otlp',
+    endpoint: 'https://otel-collector.example.com/v1/traces',
+    headers: {
+      Authorization: 'Bearer YOUR_TOKEN_HERE',
+    },
+  },
+};
+```
+
+### Properties
+
+- **serviceName**: `string` - Identifies your service in telemetry backends.
+- **enabled**: `boolean` - Enables or disables telemetry collection and export.
+- **sampling**: `SamplingStrategy` - Defines the trace sampling strategy.
+  - Options: `'ratio'`, `'always_on'`, `'always_off'`, `'parent_based'`
+  - Value: `number` (0.0 to 1.0)
+- **export**: `object` - Configuration for exporting telemetry data.
+  - **type**: `'otlp'` | `'console'`
+  - **endpoint**: `string`
+  - **headers**: `Record<string, string>`
+
+### Last Updated
+
+February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/observability/providers
+----------------------------------------
+
+**Observability Providers Overview**
+
+Key observability providers include:
+- SigNoz
+- Braintrust
+- Langfuse
+- Langsmith
+- New Relic
+- Traceloop
+- Laminar
+
+**Last Updated:** February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/rag/astra
+----------------------------------------
+
+### AstraVector Class Overview
+
+The `AstraVector` class enables vector search using DataStax Astra DB, a cloud-native, serverless database based on Apache Cassandra. It offers scalable and highly available vector search capabilities.
+
+#### Constructor Options
+- **token**: `string` - Astra DB API token
+- **endpoint**: `string` - Astra DB API endpoint
+- **keyspace**: `string` (optional) - Keyspace name
+
+#### Methods
+
+1. **createIndex()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index
+     - `dimension`: `number` - Vector dimension (must match embedding model)
+     - `metric`: `'cosine' | 'euclidean' | 'dotproduct'` (default: `cosine`) - Distance metric for similarity search
+
+2. **upsert()**
+   - **Parameters**:
+     - `indexName`: `string` - Index to upsert into
+     - `vectors`: `number[][]` - Array of embedding vectors
+     - `metadata`: `Record<string, any>[]` (optional) - Metadata for each vector
+     - `ids`: `string[]` (optional) - Vector IDs (auto-generated if not provided)
+
+3. **query()**
+   - **Parameters**:
+     - `indexName`: `string` - Index to query
+     - `queryVector`: `number[]` - Query vector for similar vectors
+     - `topK`: `number` (default: `10`) - Number of results to return
+     - `filter`: `Record<string, any>` (optional) - Metadata filters
+     - `includeVector`: `boolean` (default: `false`) - Include vectors in results
+
+4. **listIndexes()**
+   - **Returns**: Array of index names as strings.
+
+5. **describeIndex()**
+   - **Parameters**:
+     - `indexName`: `string` - Index to describe
+   - **Returns**: `IndexStats` interface containing:
+     - `dimension`: `number`
+     - `count`: `number`
+     - `metric`: `"cosine" | "euclidean" | "dotproduct"`
+
+6. **deleteIndex()**
+   - **Parameters**:
+     - `indexName`: `string` - Index to delete
+
+#### Response Types
+- **Query Results**: Returned in `QueryResult` interface:
+  - `id`: `string`
+  - `score`: `number`
+  - `metadata`: `Record<string, any>`
+
+#### Error Handling
+Catch typed errors using:
+```javascript
+try {
+  await store.query("index_name", queryVector);
+} catch (error) {
+  if (error instanceof VectorStoreError) {
+    console.log(error.code); // e.g., 'connection_failed', 'invalid_dimension'
+    console.log(error.details); // Additional error context
+  }
+}
+```
+
+#### Environment Variables
+- **ASTRA_DB_TOKEN**: Your Astra DB API token
+- **ASTRA_DB_ENDPOINT**: Your Astra DB API endpoint
+
+### Last Updated
+February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/rag/chroma
+----------------------------------------
+
+### ChromaVector Class Overview
+
+The `ChromaVector` class enables vector search using ChromaDB, an open-source embedding database, supporting efficient vector search with metadata filtering and hybrid search capabilities.
+
+#### Constructor Options
+- **path**: `string` - URL path to ChromaDB instance.
+- **auth**: `object` (optional) - Authentication configuration.
+  - **provider**: `string` - Authentication provider.
+  - **credentials**: `string` - Authentication credentials.
+
+#### Methods
+
+1. **createIndex()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to create.
+     - `dimension`: `number` - Vector dimension (must match embedding model).
+     - `metric`: `'cosine' | 'euclidean' | 'dotproduct'` (default: `cosine`) - Distance metric for similarity search.
+
+2. **upsert()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to upsert into.
+     - `vectors`: `number[][]` - Array of embedding vectors.
+     - `metadata`: `Record<string, any>[]` (optional) - Metadata for each vector.
+     - `ids`: `string[]` (optional) - Vector IDs (auto-generated if not provided).
+
+3. **query()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to query.
+     - `queryVector`: `number[]` - Query vector to find similar vectors.
+     - `topK`: `number` (default: `10`) - Number of results to return.
+     - `filter`: `Record<string, any>` (optional) - Metadata filters for the query.
+     - `includeVector`: `boolean` (default: `false`) - Whether to include vectors in results.
+
+4. **listIndexes()**
+   - **Returns**: `string[]` - Array of index names.
+
+5. **describeIndex()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to describe.
+   - **Returns**: `IndexStats` interface containing:
+     - `dimension`: `number`
+     - `count`: `number`
+     - `metric`: `"cosine" | "euclidean" | "dotproduct"`
+
+6. **deleteIndex()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to delete.
+
+#### Response Types
+- **Query Result Format**:
+  - `QueryResult` interface:
+    - `id`: `string`
+    - `score`: `number`
+    - `metadata`: `Record<string, any>`
+
+#### Error Handling
+Use try-catch to handle typed errors:
+```javascript
+try {
+  await store.query("index_name", queryVector);
+} catch (error) {
+  if (error instanceof VectorStoreError) {
+    console.log(error.code); // e.g., 'connection_failed', 'invalid_dimension'
+    console.log(error.details); // Additional error context
+  }
+}
+```
+
+#### Related
+- Metadata Filters
+
+_Last updated: February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/rag/chunk
+----------------------------------------
+
+### .chunk() Method Overview
+
+The `.chunk()` function splits documents into smaller segments using various strategies and options.
+
+#### Example Usage
+
+```javascript
+import { Document } from '@mastra/core';
+
+const doc = new Document(`# Introduction
+
+This is a sample document that we want to split into chunks.
+
+## Section 1
+
+Here is the first section with some content.
+
+## Section 2 
+
+Here is another section with different content.`);
+
+// Basic chunking with defaults
+const chunks = await doc.chunk();
+
+// Markdown-specific chunking with header extraction
+const chunksWithMetadata = await doc.chunk({
+  strategy: 'markdown',
+  headers: [['#', 'title'], ['##', 'section']],
+  extract: {
+    fields: [
+      { name: 'summary', description: 'A brief summary of the chunk content' },
+      { name: 'keywords', description: 'Key terms found in the chunk' }
+    ]
+  }
+});
+```
+
+#### Parameters
+
+- **strategy**: `'recursive' | 'character' | 'token' | 'markdown' | 'html' | 'json' | 'latex'`  
+  The chunking strategy. Defaults based on document type.
+  
+- **size**: `number = 512`  
+  Maximum size of each chunk.
+  
+- **overlap**: `number = 50`  
+  Number of characters/tokens that overlap between chunks.
+  
+- **separator**: `string = '\n\n'`  
+  Character(s) to split on. Defaults to double newline.
+  
+- **isSeparatorRegex**: `boolean = false`  
+  Whether the separator is a regex pattern.
+  
+- **keepSeparator**: `'start' | 'end'`  
+  Whether to keep the separator at the start or end of chunks.
+  
+- **extract**: `ExtractParams`  
+  Metadata extraction configuration.
+
+#### Strategy-Specific Options
+
+Options are passed as top-level parameters alongside the strategy.
+
+**HTML Example:**
+```javascript
+const chunks = await doc.chunk({
+  strategy: 'html',
+  headers: [['h1', 'title'], ['h2', 'subtitle']],
+  sections: [['div.content', 'main']],
+  size: 500
+});
+```
+
+**Markdown Example:**
+```javascript
+const chunks = await doc.chunk({
+  strategy: 'markdown',
+  headers: [['#', 'title'], ['##', 'section']],
+  stripHeaders: true,
+  overlap: 50
+});
+```
+
+**Token Example:**
+```javascript
+const chunks = await doc.chunk({
+  strategy: 'token',
+  encodingName: 'gpt2',
+  modelName: 'gpt-3.5-turbo',
+  size: 1000
+});
+```
+
+#### Return Value
+
+Returns a `MDocument` instance containing chunked documents. Each chunk includes:
+
+```javascript
+interface DocumentNode {
+  text: string;
+  metadata: Record<string, any>;
+  embedding?: number[];
+}
+```
+
+_Last updated on February 20, 2025._
+
+----------------------------------------
+https://mastra.ai/docs/reference/rag/default
+----------------------------------------
+
+### DefaultVectorDB Overview
+The `DefaultVectorDB` class provides a lightweight vector database solution using LibSQL (a SQLite fork with vector extensions) and Turso. It supports efficient vector similarity search with metadata filtering and is part of the `@mastra/core` package.
+
+### Installation
+To install, run:
+```bash
+npm install @mastra/core
+```
+
+### Usage
+Import the class:
+```javascript
+import { DefaultVectorDB } from '@mastra/core/storage';
+```
+
+#### Create a Vector Store Instance
+```javascript
+const store = new DefaultVectorDB({
+  connectionUrl: process.env.DATABASE_URL,
+  authToken: process.env.DATABASE_AUTH_TOKEN, // Optional for Turso cloud
+});
+```
+
+#### Create an Index
+```javascript
+await store.createIndex("my-collection", 1536);
+```
+
+#### Add Vectors with Metadata
+```javascript
+const vectors = [[0.1, 0.2, ...], [0.3, 0.4, ...]];
+const metadata = [
+  { text: "first document", category: "A" },
+  { text: "second document", category: "B" }
+];
+
+await store.upsert("my-collection", vectors, metadata);
+```
+
+#### Query Similar Vectors
+```javascript
+const queryVector = [0.1, 0.2, ...];
+const results = await store.query("my-collection", queryVector, 10, { category: "A" });
+```
+
+### Constructor Options
+- **connectionUrl**: `string` - LibSQL database URL (e.g., ':memory:', 'file:local.db').
+- **authToken**: `string` - Authentication token for Turso.
+- **syncUrl**: `string` - URL for database replication (Turso specific).
+- **syncInterval**: `number` - Sync interval in milliseconds (Turso specific).
+
+### Methods
+- **createIndex(indexName: string, dimension: number, metric?: 'cosine' | 'euclidean' | 'dotproduct')**: Creates a new vector collection.
+- **upsert(indexName: string, vectors: number[][], metadata?: Record<string, any>[], ids?: string[])**: Adds/updates vectors and metadata.
+- **query(indexName: string, queryVector: number[], topK?: number, filter?: object, includeVector?: boolean, minScore?: number)**: Searches for similar vectors.
+- **describeIndex(indexName: string)**: Gets information about an index.
+- **deleteIndex(indexName: string)**: Deletes an index and its data.
+- **listIndexes()**: Lists all vector indexes.
+- **truncateIndex(indexName: string)**: Removes all vectors from an index.
+
+### Response Types
+- **QueryResult**: 
+  ```javascript
+  interface QueryResult {
+    id: string;
+    score: number;
+    metadata: Record<string, any>;
+    vector?: number[]; // Included if includeVector is true
+  }
+  ```
+
+### Error Handling
+Handle errors during operations:
+```javascript
+try {
+  await store.query("my-collection", queryVector);
+} catch (error) {
+  if (error.message.includes("Invalid index name format")) {
+    console.error("Index name must start with a letter/underscore and contain only alphanumeric characters");
+  } else if (error.message.includes("Table not found")) {
+    console.error("The specified index does not exist");
+  } else {
+    console.error("Vector store error:", error.message);
+  }
+}
+```
+
+### Common Error Cases
+- Invalid index name format
+- Invalid vector dimensions
+- Table/index not found
+- Database connection issues
+- Transaction failures during upsert
+
+### Related
+- Metadata Filters
+- PgVector
+- PineconeVector
+
+_Last updated on February 20, 2025._
+
+----------------------------------------
+https://mastra.ai/docs/reference/rag/document
+----------------------------------------
+
+### MDocument Class Overview
+
+The `MDocument` class is designed for processing documents in RAG (Retrieval-Augmented Generation) applications. It provides methods for chunking documents and extracting metadata.
+
+#### Constructor
+- **Parameters:**
+  - `docs`: `Array<{ text: string, metadata?: Record<string, any> }>` - Array of document chunks with text and optional metadata.
+  - `type`: `'text' | 'html' | 'markdown' | 'json' | 'latex'` - Type of document content.
+
+#### Static Methods
+1. **fromText**
+   - **Signature:** `static fromText(text: string, metadata?: Record<string, any>): MDocument`
+   - Creates a document from plain text.
+
+2. **fromHTML**
+   - **Signature:** `static fromHTML(html: string, metadata?: Record<string, any>): MDocument`
+   - Creates a document from HTML content.
+
+3. **fromMarkdown**
+   - **Signature:** `static fromMarkdown(markdown: string, metadata?: Record<string, any>): MDocument`
+   - Creates a document from Markdown content.
+
+4. **fromJSON**
+   - **Signature:** `static fromJSON(json: string, metadata?: Record<string, any>): MDocument`
+   - Creates a document from JSON content.
+
+#### Instance Methods
+1. **chunk**
+   - **Signature:** `async chunk(params?: ChunkParams): Promise<Chunk[]>`
+   - Splits the document into chunks and optionally extracts metadata.
+
+2. **getDocs**
+   - **Signature:** `getDocs(): Chunk[]`
+   - Returns an array of processed document chunks.
+
+3. **getText**
+   - **Signature:** `getText(): string[]`
+   - Returns an array of text strings from chunks.
+
+4. **getMetadata**
+   - **Signature:** `getMetadata(): Record<string, any>[]`
+   - Returns an array of metadata objects from chunks.
+
+5. **extractMetadata**
+   - **Signature:** `async extractMetadata(params: ExtractParams): Promise<MDocument>`
+   - Extracts metadata using specified extractors.
+
+#### Example Code
+```javascript
+import { MDocument } from '@mastra/rag';
+
+// Create document from text
+const doc = MDocument.fromText('Your content here');
+
+// Split into chunks with metadata extraction
+const chunks = await doc.chunk({
+  strategy: 'markdown',
+  headers: [['#', 'title'], ['##', 'section']],
+  extract: {
+    fields: [
+      { name: 'summary', description: 'A brief summary' },
+      { name: 'keywords', description: 'Key terms' }
+    ]
+  }
+});
+
+// Get processed chunks
+const docs = doc.getDocs();
+const texts = doc.getText();
+const metadata = doc.getMetadata();
+```
+
+### Last Updated
+February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/rag/embeddings
+----------------------------------------
+
+## API Methods for Embedding
+
+### 1. `embed()`
+Generates a vector embedding for a single text input.
+
+**Import:**
+```javascript
+import { embed } from 'ai';
+```
+
+**Usage:**
+```javascript
+const result = await embed({
+  model: openai.embedding('text-embedding-3-small'),
+  value: "Your text to embed",
+  maxRetries: 2 // optional, defaults to 2
+});
+```
+
+**Parameters:**
+- `model`: `EmbeddingModel` - The embedding model to use (e.g., `openai.embedding('text-embedding-3-small')`).
+- `value`: `string | Record<string, any>` - The text content or object to embed.
+- `maxRetries?`: `number` - Maximum retries per call (default: 2, set to 0 to disable).
+- `abortSignal?`: `AbortSignal` - Optional signal to cancel the request.
+- `headers?`: `Record<string, string>` - Additional HTTP headers (for HTTP-based providers).
+
+**Return Value:**
+- `embedding`: `number[]` - The embedding vector for the input.
+
+---
+
+### 2. `embedMany()`
+Generates vector embeddings for multiple text inputs at once.
+
+**Import:**
+```javascript
+import { embedMany } from 'ai';
+```
+
+**Usage:**
+```javascript
+const result = await embedMany({
+  model: openai.embedding('text-embedding-3-small'),
+  values: ["First text", "Second text", "Third text"],
+  maxRetries: 2 // optional, defaults to 2
+});
+```
+
+**Parameters:**
+- `model`: `EmbeddingModel` - The embedding model to use (e.g., `openai.embedding('text-embedding-3-small')`).
+- `values`: `string[] | Record<string, any>[]` - Array of text content or objects to embed.
+- `maxRetries?`: `number` - Maximum retries per call (default: 2, set to 0 to disable).
+- `abortSignal?`: `AbortSignal` - Optional signal to cancel the request.
+- `headers?`: `Record<string, string>` - Additional HTTP headers (for HTTP-based providers).
+
+**Return Value:**
+- `embeddings`: `number[][]` - Array of embedding vectors corresponding to the input values.
+
+---
+
+### Example Usage
+```javascript
+import { embed, embedMany } from 'ai';
+import { openai } from '@ai-sdk/openai';
+
+// Single embedding
+const singleResult = await embed({
+  model: openai.embedding('text-embedding-3-small'),
+  value: "What is the meaning of life?",
+});
+
+// Multiple embeddings
+const multipleResult = await embedMany({
+  model: openai.embedding('text-embedding-3-small'),
+  values: [
+    "First question about life",
+    "Second question about universe",
+    "Third question about everything"
+  ],
+});
+```
+
+For more details, refer to the **AI SDK Embeddings Overview**.
+
+----------------------------------------
+https://mastra.ai/docs/reference/rag/extract-params
+----------------------------------------
+
+### ExtractParams Overview
+
+`ExtractParams` is used for configuring metadata extraction from document chunks using LLM analysis.
+
+#### Example Code
+
+```javascript
+const doc = new Document(text);
+const chunks = await doc.chunk({
+  extract: {
+    fields: [
+      { name: 'summary', description: 'A 1-2 sentence summary of the main points' },
+      { name: 'entities', description: 'List of companies, people, and locations mentioned' },
+      { name: 'custom_field', description: 'Any other metadata you want to extract, guided by this description' }
+    ],
+    model: 'gpt-4o-mini' // Optional: specify a different model
+  }
+});
+```
+
+#### Parameters
+
+- **fields**: `Array<{ name: string, description: string }>`
+  - List of fields to extract from each chunk.
+  
+- **model**: `string` (optional, default: `gpt-3.5-turbo`)
+  - OpenAI model to use for extraction.
+
+#### Common Field Types
+
+- **summary**: Overview of chunk content.
+- **keywords**: Key terms or concepts.
+- **topics**: Main subjects discussed.
+- **entities**: Named entities (people, places, organizations).
+- **sentiment**: Emotional tone.
+- **language**: Detected language.
+- **timestamp**: Temporal references.
+- **categories**: Content classification.
+
+### Note
+Last updated on February 20, 2025.
+
+----------------------------------------
+https://mastra.ai/docs/reference/rag/graph-rag
+----------------------------------------
+
+### GraphRAG Class Overview
+
+The `GraphRAG` class implements a graph-based approach for retrieval augmented generation, creating a knowledge graph from document chunks. Nodes represent documents, and edges represent semantic relationships, allowing for similarity matching and content discovery through graph traversal.
+
+### Basic Usage
+
+```javascript
+import { GraphRAG } from "@mastra/rag";
+
+const graphRag = new GraphRAG({
+  dimension: 1536,
+  threshold: 0.7
+});
+
+// Create the graph from chunks and embeddings
+graphRag.createGraph(documentChunks, embeddings);
+
+// Query the graph with embedding
+const results = await graphRag.query({
+  query: queryEmbedding,
+  topK: 10,
+  randomWalkSteps: 100,
+  restartProb: 0.15
+});
+```
+
+### Constructor Parameters
+
+- **dimension**: `number` (default: 1536) - Dimension of the embedding vectors.
+- **threshold**: `number` (default: 0.7) - Similarity threshold for creating edges (0-1).
+
+### Methods
+
+#### `createGraph`
+
+Creates a knowledge graph from document chunks and their embeddings.
+
+```typescript
+createGraph(chunks: GraphChunk[], embeddings: GraphEmbedding[]): void
+```
+
+**Parameters**:
+- `chunks`: `GraphChunk[]` - Array of document chunks with text and metadata.
+- `embeddings`: `GraphEmbedding[]` - Array of embeddings corresponding to chunks.
+
+#### `query`
+
+Performs a graph-based search combining vector similarity and graph traversal.
+
+```typescript
+query({
+  query: number[],
+  topK?: number,
+  randomWalkSteps?: number,
+  restartProb?: number
+}): RankedNode[]
+```
+
+**Parameters**:
+- `query`: `number[]` - Query embedding vector.
+- `topK`: `number` (default: 10) - Number of results to return.
+- `randomWalkSteps`: `number` (default: 100) - Number of steps in random walk.
+- `restartProb`: `number` (default: 0.15) - Probability of restarting walk from query node.
+
+**Returns**: An array of `RankedNode` objects containing:
+- `id`: `string` - Unique identifier for the node.
+- `content`: `string` - Text content of the document chunk.
+- `metadata`: `Record<string, any>` - Additional metadata associated with the chunk.
+- `score`: `number` - Combined relevance score from graph traversal.
+
+### Advanced Example
+
+```javascript
+const graphRag = new GraphRAG({
+  dimension: 1536,
+  threshold: 0.8 // Stricter similarity threshold
+});
+
+// Create graph from chunks and embeddings
+graphRag.createGraph(documentChunks, embeddings);
+
+// Query with custom parameters
+const results = await graphRag.query({
+  query: queryEmbedding,
+  topK: 5,
+  randomWalkSteps: 200,
+  restartProb: 0.2
+});
+```
+
+### Related
+
+- `createGraphRAGTool`
+
+_Last updated on February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/rag/metadata-filters
+----------------------------------------
+
+# Mastra Metadata Filters Documentation
+
+Mastra offers a unified metadata filtering syntax across vector stores, based on MongoDB/Sift query syntax. Each vector store translates these filters into their native format.
+
+## Basic Example
+
+```javascript
+import { PgVector } from '@mastra/pg';
+
+const store = new PgVector(connectionString);
+
+const results = await store.query(
+  "my_index",
+  queryVector,
+  10,
+  {
+    category: "electronics", // Simple equality
+    price: { $gt: 100 },     // Numeric comparison
+    tags: { $in: ["sale", "new"] } // Array membership
+  }
+);
+```
+
+## Supported Operators
+
+### Basic Comparison Operators
+
+| Operator | Description                           | Example                          |
+|----------|---------------------------------------|----------------------------------|
+| `$eq`    | Matches values equal to specified value | `{ age: { $eq: 25 } }`          |
+| `$ne`    | Matches values not equal              | `{ status: { $ne: 'inactive' } }` |
+| `$gt`    | Greater than                          | `{ price: { $gt: 100 } }`       |
+| `$gte`   | Greater than or equal                 | `{ rating: { $gte: 4.5 } }`     |
+| `$lt`    | Less than                             | `{ stock: { $lt: 20 } }`         |
+| `$lte`   | Less than or equal                    | `{ priority: { $lte: 3 } }`      |
+
+### Array Operators
+
+| Operator | Description                           | Example                          |
+|----------|---------------------------------------|----------------------------------|
+| `$in`    | Matches any value in array            | `{ category: { $in: ["A", "B"] } }` |
+| `$nin`   | Matches none of the values            | `{ status: { $nin: ["deleted", "archived"] } }` |
+| `$all`   | Matches arrays containing all elements | `{ tags: { $all: ["urgent", "high"] } }` |
+| `$elemMatch` | Matches array elements meeting criteria | `{ scores: { $elemMatch } }` |
+
+### Logical Operators
+
+| Operator | Description                           | Example                          |
+|----------|---------------------------------------|----------------------------------|
+| `$and`   | Logical AND                          | `{ $and: [ { price: { $gt: 100 } }, { stock: { $gt: 0 } } ] }` |
+| `$or`    | Logical OR                           | `{ $or: [ { status: "active" }, { priority: "high" } ] }` |
+| `$not`   | Logical NOT                          | `{ price: { $not } }`           |
+| `$nor`   | Logical NOR                          | `{ $nor: [ { status: "deleted" }, { archived: true } ] }` |
+
+### Element Operators
+
+| Operator | Description                           | Example                          |
+|----------|---------------------------------------|----------------------------------|
+| `$exists` | Matches documents with field          | `{ rating: { $exists: true } }` |
+
+### Custom Operators
+
+| Operator | Description                           | Example                          |
+|----------|---------------------------------------|----------------------------------|
+| `$contains` | Text contains substring              | `{ description: { $contains: "sale" } }` |
+| `$regex`    | Regular expression match             | `{ name: { $regex: "^test" } }` |
+| `$size`     | Array length check                   | `{ tags: { $size } }`           |
+| `$geo`      | Geospatial query                     | `{ location: { $geo } }`        |
+| `$datetime` | Datetime range query                 | `{ created: { $datetime } }`    |
+| `$hasId`    | Vector ID existence check            | `{ $hasId: [ "id1", "id2" ] }`  |
+| `$hasVector`| Vector existence check                | `{ $hasVector: true }`          |
+
+## Common Rules and Restrictions
+
+- **Field Names**: Cannot contain dots (.) unless referring to nested fields, cannot start with `$`, cannot be empty strings.
+- **Values**: Must be valid JSON types, not undefined, and properly typed for the operator.
+- **Logical Operators**: Must contain valid conditions, cannot be empty, must be properly nested, and cannot be used at field level.
+- **$not Operator**: Must be an object, cannot be empty, can be used at field or top level.
+
+## Store-Specific Notes
+
+- **Astra**: Supports nested field queries, case-sensitive metadata values.
+- **ChromaDB**: Filters return results where the field exists; empty fields excluded.
+- **Cloudflare Vectorize**: Requires explicit metadata indexing, limited to 10 indexes.
+- **LibSQL**: Supports nested object queries, handles empty arrays gracefully.
+- **PgVector**: Full support for PostgreSQL JSON querying, efficient array handling.
+- **Pinecone**: Metadata field names limited to 512 characters, arrays limited to 64KB.
+- **Qdrant**: Supports advanced filtering, requires explicit indexing for payload fields.
+- **Upstash**: Limited to 512 characters for metadata keys, atomic metadata updates.
+
+Last updated on February 20, 2025.
+
+----------------------------------------
+https://mastra.ai/docs/reference/rag/pg
+----------------------------------------
+
+### PgVector Class Overview
+
+The **PgVector** class enables vector search in PostgreSQL using the **pgvector** extension, providing robust similarity search capabilities.
+
+#### Constructor Options
+- **connectionString**: `string` - PostgreSQL connection URL.
+
+#### Methods
+
+1. **createIndex()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index.
+     - `dimension`: `number` - Vector dimension (must match embedding model).
+     - `metric?`: `'cosine' | 'euclidean' | 'dotproduct'` (default: `cosine`) - Distance metric for similarity search.
+
+2. **upsert()**
+   - **Parameters**:
+     - `indexName`: `string` - Index to upsert vectors into.
+     - `vectors`: `number[][]` - Array of embedding vectors.
+     - `metadata?`: `Record<string, any>[]` - Metadata for each vector.
+     - `ids?`: `string[]` - Optional vector IDs (auto-generated if not provided).
+
+3. **query()**
+   - **Parameters**:
+     - `indexName`: `string` - Index to query.
+     - `vector`: `number[]` - Query vector.
+     - `topK?`: `number` (default: `10`) - Number of results to return.
+     - `filter?`: `Record<string, any>` - Metadata filters.
+     - `includeVector?`: `boolean` (default: `false`) - Include vector in result.
+     - `minScore?`: `number` (default: `0`) - Minimum similarity score threshold.
+
+4. **listIndexes()**
+   - **Returns**: Array of index names as strings.
+
+5. **describeIndex()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to describe.
+   - **Returns**: 
+     ```typescript
+     interface IndexStats {
+       dimension: number;
+       count: number;
+       metric: "cosine" | "euclidean" | "dotproduct";
+     }
+     ```
+
+6. **deleteIndex()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to delete.
+
+7. **disconnect()**
+   - Closes the database connection pool.
+
+#### Response Types
+- **QueryResult**:
+  ```typescript
+  interface QueryResult {
+    id: string;
+    score: number;
+    metadata: Record<string, any>;
+  }
+  ```
+
+#### Error Handling
+Catch typed errors from the store:
+```javascript
+try {
+  await store.query("index_name", queryVector);
+} catch (error) {
+  if (error instanceof VectorStoreError) {
+    console.log(error.code); // e.g., 'connection_failed', 'invalid_dimension'
+    console.log(error.details); // Additional error context
+  }
+}
+```
+
+#### Last Updated
+February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/rag/pinecone
+----------------------------------------
+
+### PineconeVector Class Overview
+
+The `PineconeVector` class interfaces with Pinecone's vector database, enabling real-time vector searches with features such as hybrid search, metadata filtering, and namespace management.
+
+#### Constructor Options
+- **apiKey**: `string` - Pinecone API key
+- **environment**: `string` - Pinecone environment (e.g., "us-west1-gcp")
+
+#### Methods
+
+1. **createIndex()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to create
+     - `dimension`: `number` - Vector dimension (must match embedding model)
+     - `metric?`: `'cosine' | 'euclidean' | 'dotproduct'` (default: `cosine`) - Distance metric for similarity search
+
+2. **upsert()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of your Pinecone index
+     - `vectors`: `number[][]` - Array of embedding vectors
+     - `metadata?`: `Record<string, any>[]` - Metadata for each vector
+     - `ids?`: `string[]` - Optional vector IDs (auto-generated if not provided)
+
+3. **query()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to query
+     - `vector`: `number[]` - Query vector to find similar vectors
+     - `topK?`: `number` (default: `10`) - Number of results to return
+     - `filter?`: `Record<string, any>` - Metadata filters for the query
+     - `includeVector?`: `boolean` (default: `false`) - Whether to include the vector in the result
+
+4. **listIndexes()**
+   - **Returns**: `string[]` - Array of index names
+
+5. **describeIndex()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to describe
+   - **Returns**: 
+     ```typescript
+     interface IndexStats {
+       dimension: number;
+       count: number;
+       metric: "cosine" | "euclidean" | "dotproduct";
+     }
+     ```
+
+6. **deleteIndex()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to delete
+
+#### Response Types
+- **Query Result Format**:
+  ```typescript
+  interface QueryResult {
+    id: string;
+    score: number;
+    metadata: Record<string, any>;
+  }
+  ```
+
+#### Error Handling
+Catch typed errors using:
+```typescript
+try {
+  await store.query("index_name", queryVector);
+} catch (error) {
+  if (error instanceof VectorStoreError) {
+    console.log(error.code); // e.g., 'connection_failed', 'invalid_dimension'
+    console.log(error.details); // Additional error context
+  }
+}
+```
+
+#### Environment Variables
+- **PINECONE_API_KEY**: Your Pinecone API key
+- **PINECONE_ENVIRONMENT**: Pinecone environment (e.g., ‘us-west1-gcp’) 
+
+### Related
+- Metadata Filters
+
+_Last updated on February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/rag/qdrant
+----------------------------------------
+
+### QdrantVector Class Overview
+
+The `QdrantVector` class enables vector search using Qdrant, a vector similarity search engine. It provides an API for storing, searching, and managing vectors with payload and filtering support.
+
+#### Constructor Options
+- **url**: `string` - REST URL of the Qdrant instance (e.g., `https://xyz-example.eu-central.aws.cloud.qdrant.io:6333`).
+- **apiKey**: `string` - Optional Qdrant API key.
+- **https**: `boolean` - Use TLS for connection (recommended).
+
+#### Methods
+
+1. **createIndex()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to create.
+     - `dimension`: `number` - Vector dimension (must match embedding model).
+     - `metric?`: `'cosine' | 'euclidean' | 'dotproduct'` - Default is `cosine`.
+
+2. **upsert()**
+   - **Parameters**:
+     - `vectors`: `number[][]` - Array of embedding vectors.
+     - `metadata?`: `Record<string, any>[]` - Metadata for each vector.
+     - `ids?`: `string[]` - Optional vector IDs (auto-generated if not provided).
+
+3. **query()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to query.
+     - `queryVector`: `number[]` - Query vector for similarity search.
+     - `topK?`: `number` - Default is `10` (number of results to return).
+     - `filter?`: `Record<string, any>` - Metadata filters for the query.
+     - `includeVector?`: `boolean` - Default is `false` (include vectors in results).
+
+4. **listIndexes()**
+   - **Returns**: Array of index names as strings.
+
+5. **describeIndex()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to describe.
+   - **Returns**: `IndexStats` interface containing:
+     - `dimension`: `number`
+     - `count`: `number`
+     - `metric`: `"cosine" | "euclidean" | "dotproduct"`
+
+6. **deleteIndex()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to delete.
+
+#### Response Types
+- **QueryResult Interface**:
+  - `id`: `string`
+  - `score`: `number`
+  - `metadata`: `Record<string, any>`
+
+#### Error Handling
+Catch typed errors using:
+```javascript
+try {
+  await store.query("index_name", queryVector);
+} catch (error) {
+  if (error instanceof VectorStoreError) {
+    console.log(error.code); // e.g., 'connection_failed', 'invalid_dimension'
+    console.log(error.details); // Additional error context
+  }
+}
+```
+
+### Related
+- Metadata Filters
+- Last updated: February 20, 2025
+- Other Vector Classes: PineconeVector, UpstashVector
+
+----------------------------------------
+https://mastra.ai/docs/reference/rag/rerank
+----------------------------------------
+
+### Rerank Function Overview
+
+The `rerank()` function enhances vector search results by integrating semantic relevance, vector similarity, and position-based scoring.
+
+#### Function Signature
+```typescript
+rerank(
+  results: QueryResult[],
+  query: string,
+  modelConfig: ModelConfig,
+  options?: RerankerFunctionOptions
+): Promise<RerankResult[]>
+```
+
+#### Parameters
+- **results**: `QueryResult[]` - The vector search results to rerank.
+- **query**: `string` - The search query text for relevance evaluation.
+- **model**: `LanguageModelV1` - The language model used for reranking.
+- **options**: `RerankerFunctionOptions` (optional) - Configuration options for the reranking model.
+
+#### RerankerFunctionOptions
+- **weights**: `WeightConfig` (optional) - Weights for scoring components (must sum to 1).
+  - **semantic**: `number` (default: 0.4) - Weight for semantic relevance.
+  - **vector**: `number` (default: 0.4) - Weight for vector similarity.
+  - **position**: `number` (default: 0.2) - Weight for position-based scoring.
+- **queryEmbedding**: `number[]` (optional) - Embedding of the query.
+- **topK**: `number` (default: 3) - Number of top results to return.
+
+#### Returns
+- **Promise<RerankResult[]>** - An array of reranked results containing:
+  - **result**: `QueryResult` - The original query result.
+  - **score**: `number` - Combined reranking score (0-1).
+  - **details**: `ScoringDetails` - Detailed scoring information.
+
+#### ScoringDetails
+- **semantic**: `number` - Semantic relevance score (0-1).
+- **vector**: `number` - Vector similarity score (0-1).
+- **position**: `number` - Position-based score (0-1).
+- **queryAnalysis**: `object` (optional) - Details of query analysis.
+  - **magnitude**: `number` - Magnitude of the query.
+  - **dominantFeatures**: `number[]` - Dominant features of the query.
+
+#### Usage Example
+```javascript
+import { openai } from "@ai-sdk/openai";
+import { rerank } from "@mastra/rag";
+
+const model = openai("gpt-4o-mini");
+
+const rerankedResults = await rerank(
+  vectorSearchResults,
+  "How do I deploy to production?",
+  model,
+  {
+    weights: {
+      semantic: 0.5,
+      vector: 0.3,
+      position: 0.2
+    },
+    topK: 3
+  }
+);
+```
+
+### Notes
+- The `rerank` function supports any LanguageModel from the Vercel AI SDK. For the Cohere model `rerank-v3.5`, it utilizes Cohere’s reranking capabilities.
+
+----------------------------------------
+https://mastra.ai/docs/reference/rag/upstash
+----------------------------------------
+
+### UpstashVector Class Overview
+
+The `UpstashVector` class enables vector search using Upstash Vector, a serverless vector database service that supports vector similarity search with metadata filtering.
+
+#### Constructor Options
+- **url**: `string` - Upstash Vector database URL
+- **token**: `string` - Upstash Vector API token
+
+#### Methods
+
+1. **createIndex()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to create
+     - `dimension`: `number` - Vector dimension (must match embedding model)
+     - `metric?`: `'cosine' | 'euclidean' | 'dotproduct'` (default: `cosine`) - Distance metric for similarity search
+   - **Note**: This method is a no-op; indexes are created automatically.
+
+2. **upsert()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to upsert into
+     - `vectors`: `number[][]` - Array of embedding vectors
+     - `metadata?`: `Record<string, any>[]` - Metadata for each vector
+     - `ids?`: `string[]` - Optional vector IDs (auto-generated if not provided)
+
+3. **query()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to query
+     - `queryVector`: `number[]` - Query vector for similarity search
+     - `topK?`: `number` (default: `10`) - Number of results to return
+     - `filter?`: `Record<string, any>` - Metadata filters for the query
+     - `includeVector?`: `boolean` (default: `false`) - Whether to include vectors in results
+
+4. **listIndexes()**
+   - **Returns**: Array of index names (namespaces) as strings.
+
+5. **describeIndex()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to describe
+   - **Returns**: `IndexStats` interface containing:
+     - `dimension`: `number`
+     - `count`: `number`
+     - `metric`: `'cosine' | 'euclidean' | 'dotproduct'`
+
+6. **deleteIndex()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index (namespace) to delete
+
+#### Response Types
+- **Query Results**: Returned as `QueryResult` interface:
+  - `id`: `string`
+  - `score`: `number`
+  - `metadata`: `Record<string, any>`
+
+#### Error Handling
+- Errors are typed and can be caught:
+```javascript
+try {
+  await store.query("index_name", queryVector);
+} catch (error) {
+  if (error instanceof VectorStoreError) {
+    console.log(error.code); // e.g., 'connection_failed', 'invalid_dimension'
+    console.log(error.details); // Additional error context
+  }
+}
+```
+
+#### Environment Variables
+- **UPSTASH_VECTOR_URL**: Your Upstash Vector database URL
+- **UPSTASH_VECTOR_TOKEN**: Your Upstash Vector API token
+
+### Related
+- Metadata Filters
+
+_Last updated on February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/rag/vectorize
+----------------------------------------
+
+### CloudflareVector Class Overview
+
+The **CloudflareVector** class enables vector search using Cloudflare Vectorize, a vector database service integrated with Cloudflare’s edge network.
+
+#### Constructor Options
+- **accountId**: `string` - Cloudflare account ID.
+- **apiToken**: `string` - Cloudflare API token with Vectorize permissions.
+
+#### Methods
+
+1. **createIndex()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to create.
+     - `dimension`: `number` - Vector dimension (must match embedding model).
+     - `metric?`: `'cosine' | 'euclidean' | 'dotproduct'` (default: `cosine`) - Distance metric for similarity search.
+
+2. **upsert()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to upsert into.
+     - `vectors`: `number[][]` - Array of embedding vectors.
+     - `metadata?`: `Record<string, any>[]` - Metadata for each vector.
+     - `ids?`: `string[]` - Optional vector IDs (auto-generated if not provided).
+
+3. **query()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to query.
+     - `queryVector`: `number[]` - Query vector to find similar vectors.
+     - `topK?`: `number` (default: `10`) - Number of results to return.
+     - `filter?`: `Record<string, any>` - Metadata filters for the query.
+     - `includeVector?`: `boolean` (default: `false`) - Whether to include vectors in results.
+
+4. **listIndexes()**
+   - **Returns**: Array of index names as strings.
+
+5. **describeIndex()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to describe.
+   - **Returns**: `IndexStats` interface with:
+     - `dimension`: `number`
+     - `count`: `number`
+     - `metric`: `'cosine' | 'euclidean' | 'dotproduct'`
+
+6. **deleteIndex()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to delete.
+
+7. **createMetadataIndex()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index containing the metadata field.
+     - `propertyName`: `string` - Name of the metadata field to index.
+     - `indexType`: `'string' | 'number' | 'boolean'` - Type of the metadata field.
+
+8. **deleteMetadataIndex()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index containing the metadata field.
+     - `propertyName`: `string` - Name of the metadata field to remove indexing from.
+
+9. **listMetadataIndexes()**
+   - **Parameters**:
+     - `indexName`: `string` - Name of the index to list metadata indexes for.
+
+#### Response Types
+- **QueryResult** interface:
+  - `id`: `string`
+  - `score`: `number`
+  - `metadata`: `Record<string, any>`
+
+#### Error Handling
+Catch typed errors using:
+```javascript
+try {
+  await store.query("index_name", queryVector);
+} catch (error) {
+  if (error instanceof VectorStoreError) {
+    console.log(error.code); // e.g., 'connection_failed', 'invalid_dimension'
+    console.log(error.details); // Additional error context
+  }
+}
+```
+
+#### Environment Variables
+- **CLOUDFLARE_ACCOUNT_ID**: Your Cloudflare account ID.
+- **CLOUDFLARE_API_TOKEN**: Your Cloudflare API token with Vectorize permissions.
+
+----------------------------------------
+https://mastra.ai/docs/reference/storage/libsql
+----------------------------------------
+
+**LibSQL Storage Overview**
+
+LibSQL provides a SQLite-compatible storage solution, supporting both in-memory and persistent databases.
+
+**Installation**
+
+```bash
+npm install @mastra/storage-libsql
+```
+
+**Usage Example**
+
+```javascript
+import { DefaultStorage } from "@mastra/core/storage";
+
+// In-memory database (development)
+const storage = new DefaultStorage({
+  url: ":memory:"
+});
+
+// Persistent database (production)
+const storage = new DefaultStorage({
+  url: process.env.DATABASE_URL
+});
+```
+
+**Parameters**
+
+- `url` (string): Database URL. Use `':memory:'` for in-memory or a LibSQL-compatible connection string for persistent storage.
+- `authToken?` (string): Optional authentication token for remote LibSQL databases.
+
+**In-Memory vs Persistent Storage**
+
+- **In-Memory**: Ideal for development, testing, temporary storage, and quick prototyping.
+- **Persistent**: Use a database URL for production, e.g., `file:local.db` for local or `libsql://your-database.turso.io` for remote.
+
+**Schema Management**
+
+Automatically handles schema creation and updates, creating the following tables:
+- `threads`: Stores conversation threads.
+- `messages`: Stores individual messages.
+- `metadata`: Stores additional metadata for threads and messages.
+
+**Last Updated**: February 20, 2025.
+
+----------------------------------------
+https://mastra.ai/docs/reference/storage/postgresql
+----------------------------------------
+
+# PostgreSQL Storage Documentation
+
+## Overview
+The PostgreSQL storage implementation offers a production-ready solution using PostgreSQL databases.
+
+## Installation
+To install, run:
+```bash
+npm install @mastra/pg
+```
+
+## Usage
+Import the `PostgresStore` and initialize it:
+```javascript
+import { PostgresStore } from "@mastra/pg";
+
+const storage = new PostgresStore({
+  connectionString: process.env.DATABASE_URL,
+});
+```
+
+## Parameters
+- **connectionString**: `string`  
+  PostgreSQL connection string (e.g., `postgresql://user:pass@host:5432/dbname`).
+
+## Schema Management
+The implementation automatically manages schema creation and updates, creating the following tables:
+- **threads**: Stores conversation threads.
+- **messages**: Stores individual messages.
+- **metadata**: Stores additional metadata for threads and messages.
+
+_Last updated on February 20, 2025._
+
+----------------------------------------
+https://mastra.ai/docs/reference/storage/upstash
+----------------------------------------
+
+# Upstash Storage Documentation Summary
+
+## Overview
+Upstash Storage offers a serverless-friendly storage solution using a Redis-compatible key-value store.
+
+## Installation
+To install the Upstash Storage package:
+```bash
+npm install @mastra/upstash
+```
+
+## Usage
+Import and initialize the UpstashStore:
+```javascript
+import { UpstashStore } from "@mastra/upstash";
+
+const storage = new UpstashStore({
+  url: process.env.UPSTASH_URL,
+  token: process.env.UPSTASH_TOKEN,
+});
+```
+
+### Parameters
+- **url**: `string` - Upstash Redis URL
+- **token**: `string` - Upstash Redis authentication token
+- **prefix**: `string` (optional, default: `mastra`) - Key prefix for stored items
+
+## Key Structure
+- **Thread keys**: `{prefix}thread:{threadId}`
+- **Message keys**: `{prefix}message:{messageId}`
+- **Metadata keys**: `{prefix}metadata:{entityId}`
+
+## Serverless Benefits
+- No connection management required
+- Pay-per-request pricing
+- Global replication options
+- Edge compatibility
+
+## Data Persistence
+Features include:
+- Automatic data persistence
+- Point-in-time recovery
+- Cross-region replication
+
+## Performance Considerations
+- Use key prefixes for data organization
+- Monitor Redis memory usage
+- Implement data expiration policies as necessary
+
+_Last updated on February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/tools/client
+----------------------------------------
+
+### MastraMCPClient Documentation Summary
+
+**Class Overview:**
+`MastraMCPClient` enables interaction with Model Context Protocol (MCP) servers, managing connections, resource discovery, and tool execution.
+
+**Constructor:**
+```javascript
+constructor({
+    name: string,
+    version: string = '1.0.0',
+    server: StdioServerParameters | SSEClientParameters,
+    capabilities?: ClientCapabilities,
+})
+```
+- **Parameters:**
+  - `name`: Identifier for the client instance (string).
+  - `version`: Client version (default: '1.0.0').
+  - `server`: Configuration for stdio or SSE server connection.
+  - `capabilities`: Optional client capabilities configuration.
+
+**Methods:**
+1. **connect()**
+   - Establishes a connection with the MCP server.
+   - **Signature:** `async connect(): Promise<void>`
+
+2. **disconnect()**
+   - Closes the connection with the MCP server.
+   - **Signature:** `async disconnect(): Promise<void>`
+
+3. **resources()**
+   - Retrieves available resources from the server.
+   - **Signature:** `async resources(): Promise<ListResourcesResult>`
+
+4. **tools()**
+   - Fetches and initializes available tools from the server.
+   - **Signature:** `async tools(): Promise<Record<string, Tool>>`
+
+**Examples:**
+
+1. **Using with Mastra Agent (Stdio Server)**
+   ```javascript
+   import { Agent } from "@mastra/core/agent";
+   import { MastraMCPClient } from "@mastra/mcp";
+   import { openai } from "@ai-sdk/openai";
+
+   const fetchClient = new MastraMCPClient({
+       name: "fetch",
+       server: {
+           command: "docker",
+           args: ["run", "-i", "--rm", "mcp/fetch"],
+       },
+   });
+
+   const agent = new Agent({
+       name: "Fetch agent",
+       instructions: "You are able to fetch data from URLs on demand.",
+       model: openai("gpt-4o-mini"),
+   });
+
+   try {
+       await fetchClient.connect();
+       process.on("exit", () => fetchClient.disconnect());
+       const tools = await fetchClient.tools();
+       const response = await agent.generate("Tell me about mastra.ai/docs.", { toolsets: { fetch: tools } });
+       console.log("\n\n" + response.text);
+   } catch (error) {
+       console.error("Error:", error);
+   } finally {
+       await fetchClient.disconnect();
+   }
+   ```
+
+2. **Using with SSE Server**
+   ```javascript
+   const sseClient = new MastraMCPClient({
+       name: "sse-client",
+       server: {
+           url: new URL("https://your-mcp-server.com/sse"),
+           requestInit: {
+               headers: { "Authorization": "Bearer your-token" }
+           }
+       },
+   });
+
+   // Usage is identical to the stdio example.
+   ```
+
+**Related Information:**
+For more on the Model Context Protocol, refer to the `@modelcontextprotocol/sdk` documentation. 
+
+**Last Updated:** February 20, 2025.
+
+----------------------------------------
+https://mastra.ai/docs/reference/tools/document-chunker-tool
+----------------------------------------
+
+### createDocumentChunkerTool()
+
+The `createDocumentChunkerTool()` function splits documents into smaller chunks for efficient processing and retrieval. It allows for various chunking strategies and configurable parameters.
+
+#### Basic Usage
+
+```javascript
+import { createDocumentChunkerTool, MDocument } from "@mastra/rag";
+
+const document = new MDocument({
+  text: "Your document content here...",
+  metadata: { source: "user-manual" }
+});
+
+const chunker = createDocumentChunkerTool({
+  doc: document,
+  params: {
+    strategy: "recursive",
+    size: 512,
+    overlap: 50,
+    separator: "\n"
+  }
+});
+
+const { chunks } = await chunker.execute();
+```
+
+#### Parameters
+
+- **doc**: `MDocument` - The document to be chunked.
+- **params**: `ChunkParams` (optional) - Configuration for chunking.
+  - **strategy**: `'recursive'` - Chunking strategy (default: `'recursive'`).
+  - **size**: `number` - Target size of each chunk (default: `512` tokens/characters).
+  - **overlap**: `number` - Overlapping tokens/characters between chunks (default: `50`).
+  - **separator**: `string` - Character(s) used as chunk separator (default: `'\n'`).
+
+#### Returns
+
+- **chunks**: `DocumentChunk[]` - Array of document chunks with content and metadata.
+
+#### Example with Custom Parameters
+
+```javascript
+const technicalDoc = new MDocument({
+  text: longDocumentContent,
+  metadata: {
+    type: "technical",
+    version: "1.0"
+  }
+});
+
+const chunker = createDocumentChunkerTool({
+  doc: technicalDoc,
+  params: {
+    strategy: "recursive",
+    size: 1024,      // Larger chunks
+    overlap: 100,    // More overlap
+    separator: "\n\n" // Split on double newlines
+  }
+});
+
+const { chunks } = await chunker.execute();
+
+// Process the chunks
+chunks.forEach((chunk, index) => {
+  console.log(`Chunk ${index + 1} length: ${chunk.content.length}`);
+});
+```
+
+#### Tool Details
+
+- **Tool ID**: Document Chunker {strategy} {size}
+- **Description**: Chunks document using {strategy} strategy with size {size} and {overlap} overlap.
+- **Input Schema**: Empty object (no additional inputs required).
+- **Output Schema**: Object containing the chunks array.
+
+----------------------------------------
+https://mastra.ai/docs/reference/tools/graph-rag-tool
+----------------------------------------
+
+### createGraphRAGTool()
+
+**Description**:  
+Creates a tool that enhances Retrieval-Augmented Generation (RAG) by building a graph of semantic relationships between documents. Utilizes the GraphRAG system for graph-based retrieval, identifying relevant content through direct similarity and connected relationships.
+
+**Parameters**:
+- **vectorStoreName**: `string` - Name of the vector store to query.
+- **indexName**: `string` - Name of the index within the vector store.
+- **model**: `EmbeddingModel` - Embedding model for vector search.
+- **graphOptions**: `GraphOptions` (optional) - Configuration for graph-based retrieval.
+  - **dimension**: `number` (default: 1536) - Dimension of embedding vectors.
+  - **threshold**: `number` (default: 0.7) - Similarity threshold for creating edges (0-1).
+  - **randomWalkSteps**: `number` (default: 100) - Steps in random walk for traversal.
+  - **restartProb**: `number` (default: 0.15) - Probability of restarting random walk from query node.
+
+**Returns**:  
+An object containing:
+- **relevantContext**: `string` - Combined text from the most relevant document chunks, retrieved using graph-based ranking.
+
+**Usage Example**:
+```javascript
+import { openai } from "@ai-sdk/openai";
+import { createGraphRAGTool } from "@mastra/rag";
+
+const graphTool = createGraphRAGTool({
+  vectorStoreName: "pinecone",
+  indexName: "docs",
+  model: openai.embedding('text-embedding-3-small'),
+  graphOptions: {
+    dimension: 1536,
+    threshold: 0.7,
+    randomWalkSteps: 100,
+    restartProb: 0.15
+  }
+});
+```
+
+**Advanced Example**:
+```javascript
+const graphTool = createGraphRAGTool({
+  vectorStoreName: "pinecone",
+  indexName: "docs",
+  model: openai.embedding('text-embedding-3-small'),
+  graphOptions: {
+    dimension: 1536,
+    threshold: 0.8,        // Higher similarity threshold
+    randomWalkSteps: 200,  // More exploration steps
+    restartProb: 0.2      // Higher restart probability
+  }
+});
+```
+
+**Related**:  
+- `createVectorQueryTool`
+- `GraphRAG`
+
+**Last updated**: February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/tools/vector-query-tool
+----------------------------------------
+
+### createVectorQueryTool()
+
+The `createVectorQueryTool()` function facilitates semantic search over vector stores, supporting filtering and reranking with various backends.
+
+#### Basic Usage
+
+```javascript
+import { openai } from '@ai-sdk/openai';
+import { createVectorQueryTool } from "@mastra/rag";
+
+const queryTool = createVectorQueryTool({
+  vectorStoreName: "pinecone",
+  indexName: "docs",
+  model: openai.embedding('text-embedding-3-small'),
+});
+```
+
+#### Parameters
+
+- **vectorStoreName**: `string` - Name of the vector store (configured in Mastra).
+- **indexName**: `string` - Name of the index within the vector store.
+- **model**: `EmbeddingModel` - Embedding model for vector search.
+- **reranker?**: `RerankConfig` - Options for reranking results.
+- **id?**: `string` - Custom ID for the tool (default: 'VectorQuery {vectorStoreName} {indexName} Tool').
+- **description?**: `string` - Custom description (default provides querying instructions).
+
+#### RerankConfig
+
+- **model**: `LanguageModelV1` - Language model for reranking.
+- **options?**: `RerankerOptions` - Options for the reranking process.
+- **object.weights?**: `WeightConfig` - Weights for scoring components (semantic: 0.4, vector: 0.4, position: 0.2).
+- **topK?**: `number` - Number of top results to return.
+
+#### Returns
+
+Returns an object with:
+- **relevantContext**: `string` - Combined text from the most relevant document chunks.
+
+#### Result Handling
+
+Defaults to returning 10 results, adjustable based on query requirements.
+
+### Example with Filters
+
+```javascript
+const queryTool = createVectorQueryTool({
+  vectorStoreName: "pinecone",
+  indexName: "docs",
+  model: openai.embedding('text-embedding-3-small'),
+  enableFilters: true,
+});
+```
+
+- Processes queries with metadata filters, e.g., “Find content where the ‘version’ field is greater than 2.0”.
+
+### Example with Reranking
+
+```javascript
+const queryTool = createVectorQueryTool({
+  vectorStoreName: "milvus",
+  indexName: "documentation",
+  model: openai.embedding('text-embedding-3-small'),
+  reranker: {
+    model: openai('gpt-4o-mini'),
+    options: {
+      weights: {
+        semantic: 0.5,
+        vector: 0.3,
+        position: 0.2,
+      },
+      topK: 5,
+    }
+  }
+});
+```
+
+- Reranking enhances result quality by combining semantic relevance, vector similarity, and position bias.
+
+### Tool Details
+
+- **ID**: VectorQuery {vectorStoreName} {indexName} Tool
+- **Input Schema**: Requires `queryText` and `filter` objects.
+- **Output Schema**: Returns `relevantContext` string.
+
+### Related Functions
+
+- `rerank()`
+- `createGraphRAGTool`
+
+----------------------------------------
+https://mastra.ai/docs/reference/tts/generate
+----------------------------------------
+
+### TTS API Documentation
+
+#### Method: `TTS.generate()`
+
+**Description:**  
+Interacts with the TTS model to produce an audio response.
+
+**Parameters:**
+- `text` (string): The messages to be processed by TTS.
+- `voice` (string): Voice ID for audio generation.
+
+**Returns:**
+- `audioResult` (Readable): The generated audio stream.
+
+---
+
+### Example Implementations
+
+#### 1. ElevenLabs
+
+```javascript
+import { ElevenLabsTTS } from "@mastra/speech-elevenlabs";
+
+const tts = new ElevenLabsTTS({
+  model: {
+    name: "eleven_multilingual_v2",
+    apiKey: process.env.ELEVENLABS_API_KEY,
+  },
+});
+
+const voices = await tts.voices();
+const voiceId = voices[0].voice_id;
+
+const { audioResult } = await tts.generate({
+  text: "What is AI?",
+  voice: voiceId,
+});
+
+await writeFile(path.join(process.cwd(), "/test-outputs/generate-output.mp3"), audioResult);
+```
+
+#### 2. OpenAI
+
+```javascript
+import { OpenAITTS } from "@mastra/speech-openai";
+
+const tts = new OpenAITTS({
+  model: {
+    name: "tts-1",
+    apiKey: process.env.OPENAI_API_KEY,
+  },
+});
+
+const voices = await tts.voices();
+const voiceId = voices[0].voice_id;
+
+const { audioResult } = await tts.generate({
+  text: "What is AI?",
+  voice: voiceId,
+});
+
+const outputPath = path.join(process.cwd(), "test-outputs/open-aigenerate-test.mp3");
+writeFileSync(outputPath, audioResult);
+```
+
+#### 3. PlayAI
+
+```javascript
+import { PlayAITTS } from "@mastra/speech-playai";
+
+const tts = new PlayAITTS({
+  model: {
+    name: "PlayDialog",
+    apiKey: process.env.PLAYAI_API_KEY,
+  },
+  userId: process.env.PLAYAI_USER_ID,
+});
+
+const voices = await tts.voices();
+const voiceId = voices[0].voice_id;
+
+const { audioResult } = await tts.generate({
+  text: "What is AI?",
+  voice: voiceId,
+});
+
+const outputPath = path.join(process.cwd(), "test-outputs/open-aigenerate-test.mp3");
+writeFileSync(outputPath, audioResult);
+```
+
+#### 4. Azure
+
+```javascript
+import { AzureTTS } from "@mastra/speech-azure";
+
+const tts = new AzureTTS({
+  model: {
+    name: "en-US-JennyNeural",
+    apiKey: process.env.AZURE_API_KEY,
+    region: process.env.AZURE_REGION,
+  },
+});
+
+const { audioResult } = await tts.generate({ text: "What is AI?" });
+await writeFile(path.join(process.cwd(), "/test-outputs/azure-output.mp3"), audioResult);
+```
+
+#### 5. Deepgram
+
+```javascript
+import { DeepgramTTS } from "@mastra/speech-deepgram";
+
+const tts = new DeepgramTTS({
+  model: {
+    name: "aura",
+    voice: "asteria-en",
+    apiKey: process.env.DEEPGRAM_API_KEY,
+  },
+});
+
+const { audioResult } = await tts.generate({ text: "What is AI?" });
+await writeFile(path.join(process.cwd(), "/test-outputs/deepgram-output.mp3"), audioResult);
+```
+
+#### 6. Google
+
+```javascript
+import { GoogleTTS } from "@mastra/speech-google";
+
+const tts = new GoogleTTS({
+  model: {
+    name: "en-US-Standard-A",
+    credentials: process.env.GOOGLE_CREDENTIALS,
+  },
+});
+
+const { audioResult } = await tts.generate({ text: "What is AI?" });
+await writeFile(path.join(process.cwd(), "/test-outputs/google-output.mp3"), audioResult);
+```
+
+#### 7. IBM
+
+```javascript
+import { IbmTTS } from "@mastra/speech-ibm";
+
+const tts = new IbmTTS({
+  model: {
+    voice: "en-US_AllisonV3Voice",
+    apiKey: process.env.IBM_API_KEY,
+  },
+});
+
+const { audioResult } = await tts.generate({ text: "What is AI?" });
+await writeFile(path.join(process.cwd(), "/test-outputs/ibm-output.mp3"), audioResult);
+```
+
+#### 8. Murf
+
+```javascript
+import { MurfTTS } from "@mastra/speech-murf";
+
+const tts = new MurfTTS({
+  model: {
+    name: "GEN2",
+    voice: "en-US-natalie",
+    apiKey: process.env.MURF_API_KEY,
+  },
+});
+
+const { audioResult } = await tts.generate({ text: "What is AI?" });
+await writeFile(path.join(process.cwd(), "/test-outputs/murf-output.mp3"), audioResult);
+```
+
+---
+
+**Related Methods:**  
+For streaming audio responses, refer to the `.stream()` method documentation.
+
+----------------------------------------
+https://mastra.ai/docs/reference/tts/providers-and-models
+----------------------------------------
+
+# TTS Providers and Models
+
+## Popular Providers and Supported Models
+
+1. **ElevenLabs**
+   - Models: `eleven_multilingual_v2`, `eleven_flash_v2_5`, `eleven_flash_v2`, `eleven_multilingual_sts_v2`, `eleven_english_sts_v2`
+
+2. **OpenAI**
+   - Models: `tts-1`, `tts-1-hd`
+
+3. **PlayAI**
+   - Models: `PlayDialog`, `Play3.0-mini`
+
+4. **Azure**
+   - Various voices via Azure Cognitive Services
+
+5. **Deepgram**
+   - Models: `aura`, `asteria-en`
+
+6. **Google**
+   - Various voices via Google Cloud Text-to-Speech
+
+7. **IBM**
+   - Voices: `en-US_AllisonV3Voice`
+
+8. **Murf**
+   - Models: `GEN1`, `GEN2`, Voice: `en-US-natalie`
+
+## Configuration Examples
+
+### ElevenLabs
+```javascript
+import { ElevenLabsTTS } from "@mastra/speech-elevenlabs";
+
+const tts = new ElevenLabsTTS({
+  model: {
+    name: "eleven_multilingual_v2",
+    apiKey: process.env.ELEVENLABS_API_KEY,
+  },
+});
+```
+
+### OpenAI
+```javascript
+import { OpenAITTS } from "@mastra/speech-openai";
+
+const tts = new OpenAITTS({
+  model: {
+    name: "tts-1", // or 'tts-1-hd'
+    apiKey: process.env.OPENAI_API_KEY,
+  },
+});
+```
+
+### PlayAI
+```javascript
+import { PlayAITTS } from "@mastra/speech-playai";
+
+const tts = new PlayAITTS({
+  model: {
+    name: "PlayDialog", // or 'Play3.0-mini'
+    apiKey: process.env.PLAYAI_API_KEY,
+  },
+  userId: process.env.PLAYAI_USER_ID,
+});
+```
+
+### Azure
+```javascript
+import { AzureTTS } from "@mastra/speech-azure";
+
+const tts = new AzureTTS({
+  model: {
+    name: "en-US-JennyNeural",
+    apiKey: process.env.AZURE_API_KEY,
+    region: process.env.AZURE_REGION,
+  },
+});
+```
+
+### Deepgram
+```javascript
+import { DeepgramTTS } from "@mastra/speech-deepgram";
+
+const tts = new DeepgramTTS({
+  model: {
+    name: "aura",
+    voice: "asteria-en",
+    apiKey: process.env.DEEPGRAM_API_KEY,
+  },
+});
+```
+
+### Google
+```javascript
+const tts = new GoogleTTS({
+  model: {
+    name: "en-US-Standard-A",
+    credentials: process.env.GOOGLE_CREDENTIALS,
+  },
+});
+```
+
+### IBM
+```javascript
+const tts = new IbmTTS({
+  model: {
+    voice: "en-US_AllisonV3Voice",
+    apiKey: process.env.IBM_API_KEY,
+  },
+});
+```
+
+### Murf
+```javascript
+const tts = new MurfTTS({
+  model: {
+    name: "GEN2",
+    voice: "en-US-natalie",
+    apiKey: process.env.MURF_API_KEY,
+  },
+});
+```
+
+_Last updated on February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/tts/stream
+----------------------------------------
+
+### TTS.stream() Method
+
+The `stream()` method interacts with the TTS model to produce an audio response stream. 
+
+#### Parameters
+- **text**: `string` - The messages to be processed by TTS.
+- **voice**: `string` - Voice ID for audio generation.
+
+#### Returns
+- **audioResult**: `Readable` - The generated audio stream.
+
+### Example Implementations
+
+#### ElevenLabs Streaming
+```javascript
+import { ElevenLabsTTS } from "@mastra/speech-elevenlabs";
+
+const tts = new ElevenLabsTTS({
+  model: {
+    name: "eleven_multilingual_v2",
+    apiKey: process.env.ELEVENLABS_API_KEY,
+  },
+});
+
+const voices = await tts.voices();
+const voiceId = voices[0].voice_id;
+
+const { audioResult } = await tts.stream({
+  text: "What is AI?",
+  voice: voiceId,
+});
+
+const outputPath = path.join(process.cwd(), "/test-outputs/streaming-output.mp3");
+const writeStream = createWriteStream(outputPath);
+
+for await (const chunk of audioResult) {
+  writeStream.write(chunk);
+  console.log(`Received chunk at ${Date.now()}ms`);
+}
+writeStream.end();
+```
+
+#### OpenAI Streaming
+```javascript
+import { OpenAITTS } from "@mastra/speech-openai";
+
+const tts = new OpenAITTS({
+  model: {
+    name: "tts-1",
+    apiKey: process.env.OPENAI_API_KEY,
+  },
+});
+
+const voices = await tts.voices();
+const voiceId = voices[0].voice_id;
+
+const { audioResult } = await tts.stream({
+  text: "What is AI?",
+  voice: voiceId,
+});
+
+const outputPath = path.join(process.cwd(), "/test-outputs/streaming-output.mp3");
+const writeStream = createWriteStream(outputPath);
+
+for await (const chunk of audioResult) {
+  writeStream.write(chunk);
+  console.log(`Received chunk at ${Date.now()}ms`);
+}
+writeStream.end();
+```
+
+#### PlayAI Streaming
+```javascript
+import { PlayAITTS } from "@mastra/speech-playai";
+
+const tts = new PlayAITTS({
+  model: {
+    name: "PlayDialog",
+    apiKey: process.env.PLAYAI_API_KEY,
+  },
+  userId: process.env.PLAYAI_USER_ID,
+});
+
+const voices = await tts.voices();
+const voiceId = voices[0].voice_id;
+
+const { audioResult } = await tts.stream({
+  text: "What is AI?",
+  voice: voiceId,
+});
+
+const outputPath = path.join(process.cwd(), "/test-outputs/streaming-output.mp3");
+const writeStream = createWriteStream(outputPath);
+
+for await (const chunk of audioResult) {
+  writeStream.write(chunk);
+  console.log(`Received chunk at ${Date.now()}ms`);
+}
+writeStream.end();
+```
+
+#### Azure Streaming
+```javascript
+import { AzureTTS } from "@mastra/speech-azure";
+
+const tts = new AzureTTS({
+  model: {
+    name: "en-US-JennyNeural",
+    apiKey: process.env.AZURE_API_KEY,
+    region: process.env.AZURE_REGION,
+  },
+});
+
+const { audioResult } = await tts.stream({ text: "What is AI?" });
+
+const outputPath = path.join(process.cwd(), "/test-outputs/azure-stream.mp3");
+const writeStream = createWriteStream(outputPath);
+audioResult.pipe(writeStream);
+```
+
+#### Deepgram Streaming
+```javascript
+import { DeepgramTTS } from "@mastra/speech-deepgram";
+
+const tts = new DeepgramTTS({
+  model: {
+    name: "aura",
+    voice: "asteria-en",
+    apiKey: process.env.DEEPGRAM_API_KEY,
+  },
+});
+
+const { audioResult } = await tts.stream({ text: "What is AI?" });
+
+const outputPath = path.join(process.cwd(), "/test-outputs/deepgram-stream.mp3");
+const writeStream = createWriteStream(outputPath);
+audioResult.pipe(writeStream);
+```
+
+#### Google Streaming
+```javascript
+import { GoogleTTS } from "@mastra/speech-google";
+
+const tts = new GoogleTTS({
+  model: {
+    name: "en-US-Standard-A",
+    credentials: process.env.GOOGLE_CREDENTIALS,
+  },
+});
+
+const { audioResult } = await tts.stream({ text: "What is AI?" });
+
+const outputPath = path.join(process.cwd(), "/test-outputs/google-stream.mp3");
+const writeStream = createWriteStream(outputPath);
+audioResult.pipe(writeStream);
+```
+
+#### IBM Streaming
+```javascript
+import { IbmTTS } from "@mastra/speech-ibm";
+
+const tts = new IbmTTS({
+  model: {
+    voice: "en-US_AllisonV3Voice",
+    apiKey: process.env.IBM_API_KEY,
+  },
+});
+
+const { audioResult } = await tts.stream({ text: "What is AI?" });
+
+const outputPath = path.join(process.cwd(), "/test-outputs/ibm-stream.mp3");
+const writeStream = createWriteStream(outputPath);
+audioResult.pipe(writeStream);
+```
+
+#### Murf Streaming
+```javascript
+import { MurfTTS } from "@mastra/speech-murf";
+
+const tts = new MurfTTS({
+  model: {
+    name: "GEN2",
+    voice: "en-US-natalie",
+    apiKey: process.env.MURF_API_KEY,
+  },
+});
+
+const { audioResult } = await tts.stream({ text: "What is AI?" });
+
+const outputPath = path.join(process.cwd(), "/test-outputs/murf-stream.mp3");
+const writeStream = createWriteStream(outputPath);
+audioResult.pipe(writeStream);
+```
+
+### Last Updated
+February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/workflows/after
+----------------------------------------
+
+### .after() Method Overview
+
+The `.after()` method establishes explicit dependencies between workflow steps, allowing for branching and merging in workflow execution.
+
+#### Usage
+
+```javascript
+workflow
+  .step(stepA)
+  .then(stepB)
+  .after(stepA)  // Creates a new branch after stepA completes
+  .step(stepC);
+```
+
+#### Parameters
+
+- **stepId**: `string | string[]`
+  - ID(s) of the step(s) that must complete before proceeding.
+
+#### Returns
+
+- **workflow**: `Workflow`
+  - The workflow instance for method chaining.
+
+#### Related References
+
+- Branching Paths Example
+- Workflow Class Reference
+- Step Reference
+- Control Flow Guide
+
+_Last updated on February 20, 2025._
+
+----------------------------------------
+https://mastra.ai/docs/reference/workflows/commit
+----------------------------------------
+
+### .commit() Method
+
+**Description**:  
+The `.commit()` method finalizes a workflow definition by validating its structure for execution readiness. It checks for:
+
+- No circular dependencies between steps
+- All paths must have an endpoint
+- No unreachable steps
+- No duplicate step IDs
+- Variable references to existing steps
+
+**Usage**:
+```javascript
+workflow
+  .step(stepA)
+  .then(stepB)
+  .commit();
+```
+
+**Returns**:  
+- `workflow`: The validated workflow instance.
+
+**Error Handling**:
+```javascript
+try {
+  workflow
+    .step(stepA)
+    .after(['stepB', 'stepC'])
+    .step(stepD)
+    .commit();
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.log(error.type); // 'circular_dependency' | 'no_terminal_path' | 'unreachable_step' | 'duplicate_step_id'
+    console.log(error.details);
+  }
+}
+```
+
+**Validation Error Types**:
+- `circular_dependency`: Steps form a circular reference.
+- `no_terminal_path`: Path has no endpoint.
+- `unreachable_step`: Step cannot be reached from workflow start.
+- `duplicate_step_id`: Multiple steps share the same ID.
+
+**Related References**:
+- Branching Paths Example
+- Workflow Class Reference
+- Step Reference
+- Control Flow Guide
+
+_Last updated on February 20, 2025._
+
+----------------------------------------
+https://mastra.ai/docs/reference/workflows/createRun
+----------------------------------------
+
+### Workflow.createRun() Method
+
+**Description**:  
+Initializes a new workflow run instance, generating a unique run ID for tracking. Returns a start function to begin workflow execution.
+
+**Usage**:
+```javascript
+const { runId, start } = workflow.createRun();
+const result = await start();
+```
+
+**Returns**:
+- `runId`: `string` - Unique identifier for tracking the workflow run.
+- `start`: `() => Promise<WorkflowResult>` - Function to initiate workflow execution.
+
+**Error Handling**:  
+The `start` function may throw validation errors for invalid workflow configurations. Example:
+```javascript
+try {
+    const { runId, start } = workflow.createRun();
+    await start({ triggerData: data });
+} catch (error) {
+    if (error instanceof ValidationError) {
+        console.log(error.type); // Possible values: 'circular_dependency', 'no_terminal_path', 'unreachable_step'
+        console.log(error.details);
+    }
+}
+```
+
+**Related References**:
+- Workflow Class Reference
+- Step Class Reference
+- Example: Creating a Workflow
+
+**Last Updated**: February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/workflows/execute
+----------------------------------------
+
+### Workflow.execute() Method
+
+**Description:**  
+Executes a committed workflow with trigger data and returns the results.
+
+**Usage Example:**
+```javascript
+const workflow = new Workflow({
+  name: "my-workflow",
+  triggerSchema: z.object({
+    inputValue: z.number()
+  })
+});
+
+workflow.step(stepOne).then(stepTwo).commit();
+
+const result = await workflow.execute({
+  triggerData: { inputValue: 42 }
+});
+```
+
+**Parameters:**
+- `options?`: ExecuteOptions - Options for workflow execution.
+- `triggerData`: object - Data to trigger the workflow.
+
+**Returns:**
+- `WorkflowResult`: object - Results from workflow execution.
+- `status`: string - Status of the workflow execution.
+
+**Additional Examples:**
+
+1. **Execute with run ID:**
+   ```javascript
+   const result = await workflow.execute({
+     runId: "custom-run-id",
+     triggerData: { inputValue: 42 }
+   });
+   ```
+
+2. **Handle execution results:**
+   ```javascript
+   const { runId, results, status } = await workflow.execute({
+     triggerData: { inputValue: 42 }
+   });
+
+   if (status === "COMPLETED") {
+     console.log("Step results:", results);
+   }
+   ```
+
+**Related Methods:**
+- `Workflow.createRun()`
+- `Workflow.commit()`
+- `Workflow.start()`
+- `Workflow.suspend()`
+
+**Last updated:** February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/workflows/resume
+----------------------------------------
+
+### Method: `Workflow.resume()`
+
+**Description**:  
+Resumes execution of a suspended workflow step, optionally merging new context data with existing results.
+
+**Usage**:
+```javascript
+await workflow.resume({
+  runId: "abc-123",
+  stepId: "stepTwo",
+  context: {
+    secondValue: 100
+  }
+});
+```
+
+**Parameters**:
+- `config`: Object containing configuration for resuming the workflow.
+  - `runId` (string): Unique identifier of the workflow run to resume.
+  - `stepId` (string): ID of the suspended step to resume.
+  - `context?` (Record<string, any>): New context data to merge with existing results.
+
+**Returns**:  
+`Promise<WorkflowResult>`: Object containing the result of the resumed workflow execution.
+
+**Error Handling**:
+The `resume` method may throw errors:
+- **"No snapshot found for workflow run"**: Handle missing workflow state.
+- **"Failed to parse workflow snapshot"**: Handle corrupted workflow state.
+
+**Related Methods**:
+- `.suspend()`
+- `.commit()`
+
+_Last updated: February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/workflows/start
+----------------------------------------
+
+### Workflow API Documentation
+
+#### Method: `.start()`
+**Description:** Initiates execution of a workflow run, processing all steps in defined order, including parallel execution, branching logic, and dependencies.
+
+**Usage:**
+```javascript
+const { runId, start } = workflow.createRun();
+
+const result = await start({
+  triggerData: { inputValue: 42 }
+});
+```
+
+**Parameters:**
+- `config?`: Object for workflow run configuration
+  - `triggerData`: Record<string, any> - Initial data matching the workflow's `triggerSchema`
+
+**Returns:**
+- `results`: Record<string, any> - Combined output from all completed workflow steps
+- `status`: 'completed' | 'error' | 'suspended' - Final status of the workflow run
+
+**Error Handling:**
+The `start` function may throw validation errors. Example handling:
+```javascript
+try {
+  const result = await start({ triggerData: data });
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.log(error.type); // 'circular_dependency' | 'no_terminal_path' | 'unreachable_step'
+    console.log(error.details);
+  }
+}
+```
+
+#### Related References:
+- Example: Creating a Workflow
+- Example: Suspend and Resume
+- `createRun` Reference
+- Workflow Class Reference
+- Step Class Reference
+
+**Last updated:** February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/workflows/step-class
+----------------------------------------
+
+### Step Class Overview
+
+The **Step** class represents individual units of work in a workflow, managing execution logic, data validation, and input/output handling.
+
+#### Usage Example
+
+```javascript
+const processOrder = new Step({
+  id: "processOrder",
+  inputSchema: z.object({
+    orderId: z.string(),
+    userId: z.string()
+  }),
+  outputSchema: z.object({
+    status: z.string(),
+    orderId: z.string()
+  }),
+  execute: async ({ context, runId }) => {
+    return {
+      status: "processed",
+      orderId: context.orderId
+    };
+  }
+});
+```
+
+#### Constructor Parameters
+
+- **id**: `string` - Unique identifier for the step.
+- **inputSchema**: `z.ZodSchema` - Schema to validate input data.
+- **outputSchema**: `z.ZodSchema` - Schema to validate output data.
+- **payload**: `Record<string, any>` - Static data merged with variables.
+- **execute**: `(params: ExecuteParams) => Promise<any>` - Async function for step logic.
+
+#### ExecuteParams
+
+- **context**: `StepContext` - Access to workflow context and results.
+- **runId**: `string` - Unique identifier for the workflow run.
+- **suspend**: `() => Promise<void>` - Function to suspend execution.
+
+### Related Documentation
+
+- Workflow Reference
+- Step Configuration Guide
+- Control Flow Guide
+
+_Last updated on February 20, 2025._
+
+----------------------------------------
+https://mastra.ai/docs/reference/workflows/step-condition
+----------------------------------------
+
+## StepCondition Overview
+
+**StepCondition** determines if a workflow step executes based on previous step outputs or trigger data. Conditions can be specified in three ways:
+
+### 1. Function Condition
+```javascript
+workflow.step(processOrder, {
+  when: async ({ context }) => {
+    const auth = context?.getStepPayload<{ status: string }>("auth");
+    return auth?.status === "authenticated";
+  }
+});
+```
+
+### 2. Query Object
+```javascript
+workflow.step(processOrder, {
+  when: {
+    ref: { step: 'auth', path: 'status' },
+    query: { $eq: 'authenticated' }
+  }
+});
+```
+
+### 3. Simple Path Comparison
+```javascript
+workflow.step(processOrder, {
+  when: {
+    "auth.status": "authenticated"
+  }
+});
+```
+
+### Condition Types
+- **Simple Path Condition**: Key contains a dot (e.g., `"auth.status"`).
+- **Base/Query Condition**: Contains a `ref` property.
+- **Function Condition**: Defined as an async function.
+
+### StepCondition Parameters
+- **ref**: `{ stepId: string | 'trigger'; path: string }`  
+  Reference to step output. `stepId` can be a step ID or 'trigger' for initial data. `path` specifies the value location.
+  
+- **query**: `Query<any>`  
+  MongoDB-style query using operators like `$eq`, `$gt`, etc.
+
+### Query Operators
+- `$eq`: Equal to value
+- `$ne`: Not equal to value
+- `$gt`: Greater than value
+- `$gte`: Greater than or equal to value
+- `$lt`: Less than value
+- `$lte`: Less than or equal to value
+- `$in`: Value exists in array
+- `$nin`: Value does not exist in array
+- `and`: Array of conditions that must all be true
+- `or`: Array of conditions where at least one must be true
+
+### Related References
+- Step Options Reference
+- Step Function Reference
+- Control Flow Guide
+
+*Last updated: February 20, 2025*
+
+----------------------------------------
+https://mastra.ai/docs/reference/workflows/step-function
+----------------------------------------
+
+### Workflow.step() Method
+
+The `.step()` method adds a new step to a workflow, allowing for optional configuration of variables and execution conditions.
+
+#### Usage
+
+```javascript
+workflow.step({
+  id: "stepTwo",
+  outputSchema: z.object({
+    result: z.number()
+  }),
+  execute: async ({ context }) => {
+    return { result: 42 };
+  }
+});
+```
+
+#### Parameters
+
+- **stepConfig**: `Step | StepDefinition | string`
+  - A step instance, configuration object, or step ID to add to the workflow.
+  
+- **options** (optional): `StepOptions`
+  - Configuration for step execution.
+
+#### StepDefinition
+
+- **id**: `string`
+  - Unique identifier for the step.
+  
+- **outputSchema** (optional): `z.ZodSchema`
+  - Schema for validating step output.
+  
+- **execute**: `(params: ExecuteParams) => Promise<any>`
+  - Function containing step logic.
+
+#### StepOptions
+
+- **variables** (optional): `Record<string, VariableRef>`
+  - Map of variable names to their source references.
+  
+- **when** (optional): `StepCondition`
+  - Condition that must be met for the step to execute.
+
+### Related References
+
+- Basic Usage with Step Instance
+- Step Class Reference
+- Workflow Class Reference
+- Control Flow Guide
+
+_Last updated on February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/workflows/step-options
+----------------------------------------
+
+### StepOptions Configuration for Workflow Steps
+
+**Overview**: StepOptions control variable mapping, execution conditions, and runtime behavior in workflows.
+
+**Usage Example**:
+```javascript
+workflow.step(processOrder, {
+  variables: {
+    orderId: { step: 'trigger', path: 'id' },
+    userId: { step: 'auth', path: 'user.id' }
+  },
+  when: {
+    ref: { step: 'auth', path: 'status' },
+    query: { $eq: 'authenticated' }
+  }
+});
+```
+
+**Properties**:
+- **variables**: `Record<string, VariableRef>`  
+  Maps input variables to values from other steps.
+  
+- **when**: `StepCondition`  
+  Specifies conditions for step execution.
+
+**VariableRef**:
+- **step**: `string | Step | { id: string }`  
+  Indicates the source step for the variable value.
+  
+- **path**: `string`  
+  Path to the value in the step's output.
+
+**Related References**:
+- Path Comparison
+- Step Function Reference
+- Step Class Reference
+- Workflow Class Reference
+- Control Flow Guide
+
+*Last updated: February 20, 2025*
+
+----------------------------------------
+https://mastra.ai/docs/reference/workflows/suspend
+----------------------------------------
+
+### API Method: `.suspend()`
+
+**Description**:  
+Pauses workflow execution at the current step until explicitly resumed. The workflow state is persisted for later continuation.
+
+**Parameters**:  
+- `metadata?`: `Record<string, any>` (Optional) - Data to store with the suspended state.
+
+**Returns**:  
+- `Promise<void>` - Resolves when the workflow is successfully suspended.
+
+### Usage Example:
+
+```javascript
+const approvalStep = new Step({
+  id: "needsApproval",
+  execute: async ({ context, suspend }) => {
+    if (context.steps.amount > 1000) {
+      await suspend();
+    }
+    return { approved: true };
+  }
+});
+```
+
+### Additional Examples:
+
+1. **Suspend with Metadata**:
+```javascript
+const reviewStep = new Step({
+  id: "review",
+  execute: async ({ context, suspend }) => {
+    await suspend({
+      reason: "Needs manager approval",
+      requestedBy: context.user
+    });
+    return { reviewed: true };
+  }
+});
+```
+
+2. **Monitor Suspended State**:
+```javascript
+workflow.watch((state) => {
+  if (state.status === "SUSPENDED") {
+    notifyReviewers(state.metadata);
+  }
+});
+```
+
+### Related Methods:
+- `.resume()`
+- `.watch()`
+- `.execute()` 
+
+**Last updated**: February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/workflows/then
+----------------------------------------
+
+### .then() Method Overview
+
+The `.then()` method establishes a sequential dependency between workflow steps, ensuring they execute in a specified order.
+
+#### Usage
+
+```javascript
+workflow
+  .step(stepOne)
+  .then(stepTwo)
+  .then(stepThree);
+```
+
+#### Parameters
+
+- **step**: `Step | string`  
+  The step instance or step ID that executes after the previous step completes.
+
+#### Returns
+
+- **workflow**: `Workflow`  
+  The workflow instance for method chaining.
+
+#### Validation Rules
+
+- The previous step must exist in the workflow.
+- Steps cannot form circular dependencies.
+- Each step can only appear once in a sequential chain.
+
+#### Error Handling Example
+
+```javascript
+try {
+  workflow
+    .step(stepA)
+    .then(stepB)
+    .then(stepA) // Throws error - circular dependency
+    .commit();
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.log(error.type); // 'circular_dependency'
+    console.log(error.details);
+  }
+}
+```
+
+### Related Topics
+
+- Step Reference
+- After Reference
+- Sequential Steps Example
+- Control Flow Guide
+
+_Last updated: February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/workflows/watch
+----------------------------------------
+
+### .watch() Method Overview
+
+The `.watch()` function in the Mastra workflow library allows you to subscribe to state changes in a workflow, enabling monitoring of execution progress and responses to state updates.
+
+#### Usage Example
+
+```javascript
+import { Workflow } from "@mastra/core/workflows";
+
+const workflow = new Workflow({
+  name: "document-processor"
+});
+
+// Subscribe to state changes
+const unsubscribe = workflow.watch((state) => {
+  console.log('Current step:', state.currentStep);
+  console.log('Step outputs:', state.stepOutputs);
+});
+
+// Run the workflow
+await workflow.run({
+  input: { text: "Process this document" }
+});
+
+// Stop watching
+unsubscribe();
+```
+
+#### Parameters
+
+- **callback**: `(state: WorkflowState) => void`  
+  Function invoked on workflow state changes.
+
+#### WorkflowState Properties
+
+- **currentStep**: `string`  
+  ID of the currently executing step.
+  
+- **stepOutputs**: `Record<string, any>`  
+  Outputs from completed workflow steps.
+  
+- **status**: `'running' | 'completed' | 'failed'`  
+  Current status of the workflow.
+  
+- **error**: `Error | null` (optional)  
+  Error object if the workflow failed.
+
+#### Returns
+
+- **unsubscribe**: `() => void`  
+  Function to stop watching workflow state changes.
+
+#### Additional Examples
+
+1. **Monitor Specific Step Completion**:
+   ```javascript
+   workflow.watch((state) => {
+     if (state.currentStep === 'processDocument') {
+       console.log('Document processing output:', state.stepOutputs.processDocument);
+     }
+   });
+   ```
+
+2. **Error Handling**:
+   ```javascript
+   workflow.watch((state) => {
+     if (state.status === 'failed') {
+       console.error('Workflow failed:', state.error);
+       // Implement error recovery logic
+     }
+   });
+   ```
+
+### Related Topics
+
+- Workflow Creation
+- Step Configuration
+
+_Last updated on February 20, 2025._
+
+----------------------------------------
+https://mastra.ai/docs/reference/workflows/workflow
+----------------------------------------
+
+### Workflow Class Overview
+
+The **Workflow** class facilitates the creation of state machines for complex operations with conditional branching and data validation.
+
+#### Import
+```javascript
+import { Workflow } from "@mastra/core/workflows";
+```
+
+#### Constructor
+```javascript
+const workflow = new Workflow({
+  name: "my-workflow",
+  logger?: Logger<WorkflowLogMessage>,
+  steps: Step[],
+  triggerSchema?: z.Schema
+});
+```
+- **name**: string (Identifier for the workflow)
+- **logger**: optional (Logger instance for execution details)
+- **steps**: array of Step (Steps included in the workflow)
+- **triggerSchema**: optional (Schema for validating trigger data)
+
+#### Core Methods
+- **step()**
+  - Adds a Step to the workflow, allowing transitions. Returns the workflow instance for chaining.
+  
+- **commit()**
+  - Validates and finalizes the workflow configuration. Must be called after adding all steps.
+  
+- **execute()**
+  - Executes the workflow with optional trigger data, typed based on the trigger schema.
+
+#### Trigger Schemas
+Trigger schemas validate initial data using Zod.
+```javascript
+const workflow = new Workflow({
+  name: "order-process",
+  triggerSchema: z.object({
+    orderId: z.string(),
+    customer: z.object({
+      id: z.string(),
+      email: z.string().email(),
+    }),
+  }),
+});
+```
+
+#### Validation
+Validation occurs at two key times:
+1. **Commit Time**: Validates structure when calling `.commit()`.
+2. **Execution Time**: Validates trigger data against the schema when calling `start()`.
+
+#### Workflow Status
+Possible statuses:
+- **CREATED**: Workflow instance created but not started.
+- **RUNNING**: Workflow actively executing.
+- **SUSPENDED**: Execution paused.
+- **COMPLETED**: All steps finished successfully.
+- **FAILED**: Error encountered during execution.
+
+#### Example: Handling Different Statuses
+```javascript
+const { runId, start } = workflow.createRun();
+
+workflow.watch(runId, async ({ status }) => {
+  switch (status) {
+    case "SUSPENDED":
+      // Handle suspended state
+      break;
+    case "COMPLETED":
+      // Process results
+      break;
+    case "FAILED":
+      // Handle error state
+      break;
+  }
+});
+
+await start({ triggerData: data });
+```
+
+#### Error Handling
+```javascript
+try {
+  const { runId, start } = workflow.createRun();
+  await start({ triggerData: data });
+} catch (error) {
+  if (error instanceof ValidationError) {
+    console.log(error.type); // 'circular_dependency' | 'no_terminal_path' | 'unreachable_step'
+    console.log(error.details); // { stepId?: string, path?: string[] }
+  }
+}
+```
+
+#### Passing Context Between Steps
+Steps can access data from previous steps via the context object.
+```javascript
+workflow
+  .step({
+    id: 'getData',
+    execute: async ({ context }) => {
+      return { data: { id: '123', value: 'example' } };
+    }
+  })
+  .step({
+    id: 'processData',
+    execute: async ({ context }) => {
+      const previousData = context.steps.getData.output.data;
+      // Process previousData.id and previousData.value
+    }
+  });
+```
+- **Context Object**: Contains results from all completed steps, providing access to outputs and ensuring data consistency.
+
+#### Related Documentation
+- Step
+- .then()
+- .step()
+- .after()
+
+----------------------------------------
+https://mastra.ai/docs/reference/observability/providers/braintrust
+----------------------------------------
+
+### Braintrust Overview
+Braintrust is an evaluation and monitoring platform for LLM applications.
+
+### Configuration
+To integrate Braintrust with Mastra, set the following environment variables:
+
+- **OTEL_EXPORTER_OTLP_ENDPOINT**: `https://api.braintrust.dev/otel`
+- **OTEL_EXPORTER_OTLP_HEADERS**: `"Authorization=Bearer <Your API Key>, x-bt-parent=project_id:<Your Project ID>"`
+
+### Implementation
+Configure Mastra to use Braintrust as follows:
+
+```javascript
+import { Mastra } from "@mastra/core";
+
+export const mastra = new Mastra({
+  // ... other config
+  telemetry: {
+    serviceName: "your-service-name",
+    enabled: true,
+    export: {
+      type: "otlp",
+    },
+  },
+});
+```
+
+### Dashboard
+Access your Braintrust dashboard at [braintrust.dev](https://braintrust.dev).
+
+**Last updated**: February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/observability/providers/laminar
+----------------------------------------
+
+**Laminar Overview**  
+Laminar is an observability platform designed for LLM applications.
+
+**Configuration**  
+To integrate Laminar with Mastra, set the following environment variables:
+
+- **OTEL_EXPORTER_OTLP_ENDPOINT**: `https://api.laminar.dev/v1/traces`
+- **OTEL_EXPORTER_OTLP_HEADERS**: `"Authorization=Bearer your_api_key, x-laminar-team-id=your_team_id"`
+
+**Implementation**  
+Configure Mastra to use Laminar as follows:
+
+```javascript
+import { Mastra } from "@mastra/core";
+
+export const mastra = new Mastra({
+  // ... other config
+  telemetry: {
+    serviceName: "your-service-name",
+    enabled: true,
+    export: {
+      type: "otlp",
+    },
+  },
+});
+```
+
+**Dashboard Access**  
+Visit your Laminar dashboard at: [https://lmnr.ai/](https://lmnr.ai/)  
+_Last updated: February 20, 2025_
+
+----------------------------------------
+https://mastra.ai/docs/reference/observability/providers/langfuse
+----------------------------------------
+
+**Langfuse Overview**  
+Langfuse is an open-source observability platform tailored for LLM applications.
+
+**Configuration**  
+To integrate Langfuse with Mastra, set the following environment variables:
+
+- `LANGFUSE_PUBLIC_KEY`: Your public key.
+- `LANGFUSE_SECRET_KEY`: Your secret key.
+- `LANGFUSE_BASEURL`: Optional, defaults to `https://cloud.langfuse.com`.
+
+**Important**: Set the `traceName` parameter to `"ai"` for proper integration.
+
+**Implementation**  
+Configure Mastra to use Langfuse as follows:
+
+```javascript
+import { Mastra } from "@mastra/core";
+import { LangfuseExporter } from "langfuse-vercel";
+
+export const mastra = new Mastra({
+  // ... other config
+  telemetry: {
+    serviceName: "your-service-name",
+    enabled: true,
+    export: {
+      type: "custom",
+      traceName: "ai",
+      exporter: new LangfuseExporter({
+        publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+        secretKey: process.env.LANGFUSE_SECRET_KEY,
+        baseUrl: process.env.LANGFUSE_BASEURL,
+      }),
+    },
+  },
+});
+```
+
+**Dashboard**  
+After configuration, access traces and analytics at `cloud.langfuse.com`.
+
+----------------------------------------
+https://mastra.ai/docs/reference/observability/providers/langsmith
+----------------------------------------
+
+**LangSmith Overview**  
+LangSmith is a platform for debugging, testing, evaluating, and monitoring LLM applications within LangChain.
+
+**Configuration**  
+To integrate LangSmith with Mastra, set the following environment variables:
+
+- **OTEL_EXPORTER_OTLP_ENDPOINT**:  
+  `https://api.smith.langchain.com/v1/traces`
+
+- **OTEL_EXPORTER_OTLP_HEADERS**:  
+  `"Authorization=Bearer your_api_key, x-langsmith-project-id=your_project_id"`
+
+**Implementation**  
+Configure Mastra to use LangSmith as follows:
+
+```javascript
+import { Mastra } from "@mastra/core";
+
+export const mastra = new Mastra({
+  // ... other config
+  telemetry: {
+    serviceName: "your-service-name",
+    enabled: true,
+    export: {
+      type: "otlp",
+    },
+  },
+});
+```
+
+**Dashboard**  
+Access traces and analytics at:  
+`smith.langchain.com`
+
+**Last Updated**: February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/observability/providers/langwatch
+----------------------------------------
+
+# LangWatch Documentation Summary
+
+## Overview
+LangWatch is an observability platform designed for LLM applications.
+
+## Configuration
+Set the following environment variables for integration with Mastra:
+- `LANGWATCH_API_KEY`: Your API key.
+- `LANGWATCH_PROJECT_ID`: Your project ID.
+
+## Implementation
+To configure Mastra with LangWatch, use the following code:
+
+```javascript
+import { Mastra } from "@mastra/core";
+import { LangWatchExporter } from "langwatch";
+
+export const mastra = new Mastra({
+  // ... other config
+  telemetry: {
+    serviceName: "your-service-name",
+    enabled: true,
+    export: {
+      type: "custom",
+      exporter: new LangWatchExporter({
+        apiKey: process.env.LANGWATCH_API_KEY,
+        projectId: process.env.LANGWATCH_PROJECT_ID,
+      }),
+    },
+  },
+});
+```
+
+## Dashboard
+Access the LangWatch dashboard at: [app.langwatch.ai](http://app.langwatch.ai)
+
+_Last updated on February 20, 2025._
+
+----------------------------------------
+https://mastra.ai/docs/reference/observability/providers/new-relic
+----------------------------------------
+
+### New Relic Integration with Mastra
+
+**Overview:**
+New Relic is an observability platform supporting OpenTelemetry (OTLP) for full-stack monitoring.
+
+**Configuration:**
+Set the following environment variables to use New Relic with Mastra via OTLP:
+
+- **OTEL_EXPORTER_OTLP_ENDPOINT:** `https://otlp.nr-data.net:4317`
+- **OTEL_EXPORTER_OTLP_HEADERS:** `"api-key=your_license_key"`
+
+**Implementation:**
+To configure Mastra for New Relic:
+
+```javascript
+import { Mastra } from "@mastra/core";
+
+export const mastra = new Mastra({
+  // ... other config
+  telemetry: {
+    serviceName: "your-service-name",
+    enabled: true,
+    export: {
+      type: "otlp",
+    },
+  },
+});
+```
+
+**Dashboard:**
+Access telemetry data at [New Relic One Dashboard](https://one.newrelic.com).
+
+**Last Updated:** February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/observability/providers/signoz
+----------------------------------------
+
+### SigNoz Overview
+SigNoz is an open-source Application Performance Monitoring (APM) and observability platform that offers full-stack monitoring via OpenTelemetry.
+
+### Configuration for Mastra
+To integrate SigNoz with Mastra, set the following environment variables:
+
+- **OTEL_EXPORTER_OTLP_ENDPOINT**: `https://ingest.{region}.signoz.cloud:443`
+- **OTEL_EXPORTER_OTLP_HEADERS**: `signoz-ingestion-key=your_signoz_token`
+
+### Implementation Example
+To configure Mastra with SigNoz, use the following code snippet:
+
+```javascript
+import { Mastra } from "@mastra/core";
+
+export const mastra = new Mastra({
+  // ... other config
+  telemetry: {
+    serviceName: "your-service-name",
+    enabled: true,
+    export: {
+      type: "otlp",
+    },
+  },
+});
+```
+
+### Accessing the Dashboard
+Visit your SigNoz dashboard at: `cloud.signoz.io`
+
+**Last updated:** February 20, 2025
+
+----------------------------------------
+https://mastra.ai/docs/reference/observability/providers/traceloop
+----------------------------------------
+
+**Traceloop Documentation Summary**
+
+**Overview:**
+Traceloop is an OpenTelemetry-native observability platform tailored for LLM applications.
+
+**Configuration:**
+To integrate Traceloop with Mastra, set the following environment variables:
+
+- **OTEL_EXPORTER_OTLP_ENDPOINT:**  
+  `https://api.traceloop.com/v1/traces`
+
+- **OTEL_EXPORTER_OTLP_HEADERS:**  
+  `"Authorization=Bearer your_api_key, x-traceloop-destination-id=your_destination_id"`
+
+**Implementation:**
+Configure Mastra to utilize Traceloop as follows:
+
+```javascript
+import { Mastra } from "@mastra/core";
+
+export const mastra = new Mastra({
+  // ... other config
+  telemetry: {
+    serviceName: "your-service-name",
+    enabled: true,
+    export: {
+      type: "otlp",
+    },
+  },
+});
+```
+
+**Dashboard:**
+Access traces and analytics at [app.traceloop.com](https://app.traceloop.com).
+
+**Last Updated:** February 20, 2025

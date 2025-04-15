@@ -20,30 +20,22 @@ Each Skynet-MCP instance operates in two modes simultaneously:
 ![Skynet-MCP Architecture](https://placeholder-diagram.com/skynet-mcp-arch.png)
 
 1. **MCP Server Layer**
-   - Implements MCP protocol server interface
+
+   - Implements MCP protocol server interface, using FastMCP
    - Exposes tools and resources to parent agents
-   - Manages authentication and authorization
    - Handles SSE transport for real-time communication
 
 2. **Agent Orchestration Engine**
+
+   - Based on Mastra SDK
    - Manages agent lifecycle (creation, execution, monitoring, termination)
    - Maintains agent state and execution context
-   - Implements hierarchical agent relationship model
    - Provides progress tracking and status reporting
+   - Uses dynamic workflows from Mastra
+   - Implements Vercel AI Sdk LLM's for OpenAI, Anthropic, Google and Ollama
+   - Implements MCP Client from Mastra for tool usage
 
-3. **MCP Client Layer**
-   - Connects to child agents and external MCP services
-   - Manages client authentication and security
-   - Handles transport protocols (SSE) for client connections
-   - Translates tool interactions between agent levels
-
-4. **Task Management System**
-   - Decomposes complex tasks into subtasks
-   - Assigns subtasks to appropriate child agents
-   - Tracks subtask completion status
-   - Aggregates and consolidates results
-
-5. **Memory and Storage Layer**
+3. **Memory and Storage Layer**
    - Persists agent state and execution history
    - Caches frequently accessed data
    - Implements distributed memory architecture
@@ -54,14 +46,13 @@ Each Skynet-MCP instance operates in two modes simultaneously:
 ### 3.1 Agent Types
 
 - **Coordinator Agent**: Top-level agent managing a task (receives initial user request)
-- **Worker Agent**: Child agent handling a specific subtask
-- **Specialist Agent**: Child agent with specialized capabilities (research, code generation, etc.)
+- **Worker Agent**: Child agent handling a specific subtask, can also act as a Coordinator, spawning another child agent
 
 ### 3.2 Communication Flow
 
 1. User or parent agent submits a task to Skynet-MCP
 2. Coordinator agent analyzes the task and determines if subtasks are needed
-3. If needed, coordinator spawns child agents via the `spawn_agent` tool
+3. If needed, coordinator spawns child agents via the `spawn_agent` tool (which is defined by the MCP Server layer)
 4. Child agents execute their tasks, potentially spawning their own child agents
 5. Results propagate back up the hierarchy
 6. Coordinator agent integrates and synthesizes results for final response
@@ -94,12 +85,7 @@ Each Skynet-MCP instance operates in two modes simultaneously:
     "context": "This is part of a larger report on emerging technologies",
     "expectedOutput": "A 500-word summary with key breakthroughs"
   },
-  "mcpTools": [
-    "web_search",
-    "document_retrieval",
-    "spawn_agent",
-    "fetch_url"
-  ],
+  "mcpTools": ["web_search", "document_retrieval", "spawn_agent", "fetch_url"],
   "timeoutSeconds": 300
 }
 ```
@@ -135,14 +121,17 @@ Each Skynet-MCP instance operates in two modes simultaneously:
 Skynet-MCP exposes several key tools to enable agent orchestration:
 
 - **spawn_agent**: Creates a new child agent with specified parameters
+
   - Parameters: model, temperature, task description, tools, etc.
   - Returns: agentId for tracking
 
 - **get_agent_status**: Checks status of a child agent
+
   - Parameters: agentId
   - Returns: status, progress, runtime information
 
 - **get_agent_result**: Retrieves results from a completed child agent
+
   - Parameters: agentId
   - Returns: agent's output and any relevant metadata
 
@@ -208,66 +197,45 @@ Combining approaches for flexibility:
 - Short-lived worker agents in serverless functions
 - Elastic scaling based on workload
 
-## 8. Security Considerations
+## 8. Monitoring and Observability
 
-### 8.1 Authentication & Authorization
-
-- OAuth2 for client/server authentication
-- Fine-grained permissions for agent operations
-- Role-based access control for agent capabilities
-
-### 8.2 Data Protection
-
-- Encryption for data at rest and in transit
-- Isolated execution environments
-- Ephemeral credentials for external service access
-
-### 8.3 Resource Controls
-
-- Rate limiting for agent creation
-- Token budget constraints for model usage
-- Execution time and memory limits
-- Recursive depth limits for agent hierarchies
-
-## 9. Monitoring and Observability
-
-### 9.1 Metrics
+### 8.1 Metrics
 
 - Agent creation/termination rates
 - Execution time and resource usage
 - Model token consumption
 - Error rates and types
 
-### 9.2 Logging
+### 8.2 Logging
 
 - Structured logs for agent events
 - Tool invocation tracking
 - Inter-agent communication logs
 - Performance bottleneck identification
 
-### 9.3 Tracing
+### 8.3 Tracing
 
 - Distributed tracing across agent hierarchies
 - End-to-end request tracking
 - Performance hot spot identification
 
-## 10. Implementation Roadmap
+## 9. Implementation Roadmap
 
-### 10.1 Phase 1: Core Infrastructure
+### 9.1 Phase 1: Core Infrastructure
 
 - Implement basic MCP server/client dual-mode
 - Develop spawn_agent and status/result tools
 - Create simple agent orchestration logic
 - Implement in-memory state management
 
-### 10.2 Phase 2: Enhanced Capabilities
+### 9.2 Phase 2: Enhanced Capabilities
 
 - Add distributed memory with Redis
 - Implement more advanced task decomposition
 - Add robust error handling and recovery
 - Develop observability infrastructure
 
-### 10.3 Phase 3: Scaling and Production
+### 9.3 Phase 3: Scaling and Production
 
 - Implement serverless deployment model
 - Add authentication and security controls
