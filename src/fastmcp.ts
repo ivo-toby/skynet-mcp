@@ -1,17 +1,36 @@
 import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { EventEmitter } from 'events';
-// node-fetch is imported via globalThis.fetch for better testability
+// Define fetch type for Node.js environments
+declare global {
+  interface Window {
+    fetch: typeof fetch;
+  }
+  
+  var fetch: typeof fetch;
+}
+
+export interface ToolParams {
+  [key: string]: unknown;
+}
+
+export interface ToolResult {
+  [key: string]: unknown;
+}
 
 export type Tool = {
   name: string;
   description: string;
-  handler: (params: any) => Promise<any>;
+  handler: (params: ToolParams) => Promise<ToolResult>;
 };
+
+export interface ResourceResult {
+  [key: string]: unknown;
+}
 
 export type Resource = {
   name: string;
   description: string;
-  fetch: () => Promise<any>;
+  fetch: () => Promise<ResourceResult>;
 };
 
 export type Prompt = {
@@ -73,7 +92,7 @@ export class FastMCP extends EventEmitter {
     for (const client of this.clients) {
       try {
         // Use global fetch to ensure it can be mocked in tests
-        const resp = await (globalThis as any).fetch(`${client.url}/tools`);
+        const resp = await fetch(`${client.url}/tools`);
         if (!resp.ok) continue;
         const tools = await resp.json();
         for (const t of tools) {
@@ -99,7 +118,7 @@ export class FastMCP extends EventEmitter {
     for (const client of this.clients) {
       try {
         // Use global fetch to ensure it can be mocked in tests
-        const resp = await (globalThis as any).fetch(`${client.url}/resources`);
+        const resp = await fetch(`${client.url}/resources`);
         if (!resp.ok) continue;
         const resources = await resp.json();
         for (const r of resources) {
@@ -125,7 +144,7 @@ export class FastMCP extends EventEmitter {
     for (const client of this.clients) {
       try {
         // Use global fetch to ensure it can be mocked in tests
-        const resp = await (globalThis as any).fetch(`${client.url}/prompts`);
+        const resp = await fetch(`${client.url}/prompts`);
         if (!resp.ok) continue;
         const prompts = await resp.json();
         for (const p of prompts) {
@@ -140,6 +159,11 @@ export class FastMCP extends EventEmitter {
   }
 
   async handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    if (!req.url) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Missing URL' }));
+      return;
+    }
     if (req.method === 'GET' && req.url === '/tools') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(this.listTools()));
@@ -173,10 +197,10 @@ export class FastMCP extends EventEmitter {
     if (req.method === 'POST' && req.url?.startsWith('/tool/')) {
       const toolName = req.url.split('/').pop()!;
       let body = '';
-      req.on('data', (chunk) => (body += chunk));
+      req.on('data', (chunk: Buffer | string) => (body += chunk.toString()));
       req.on('end', async () => {
         try {
-          const params = JSON.parse(body);
+          const params: ToolParams = JSON.parse(body);
           const tool = this.tools.get(toolName);
           if (tool) {
             const result = await tool.handler(params);
@@ -187,7 +211,8 @@ export class FastMCP extends EventEmitter {
           // Try remote tools
           for (const client of this.clients) {
             try {
-              const resp = await (globalThis as any).fetch(`${client.url}/tool/${toolName}`, {
+              // Use the global fetch API
+              const resp = await fetch(`${client.url}/tool/${toolName}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(params),
@@ -204,9 +229,10 @@ export class FastMCP extends EventEmitter {
             }
           }
           throw new Error('Tool not found');
-        } catch (err: any) {
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err);
           res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: err.message }));
+          res.end(JSON.stringify({ error: errorMessage }));
         }
       });
       return;
@@ -227,7 +253,13 @@ export class FastMCP extends EventEmitter {
       process.stdin.setEncoding('utf-8');
       process.stdin.on('data', async (data: Buffer | string) => {
         try {
-          const req = JSON.parse(data.toString());
+          interface StdioRequest {
+            type: string;
+            name?: string;
+            params?: ToolParams;
+          }
+          
+          const req: StdioRequest = JSON.parse(data.toString());
           if (req.type === 'listTools') {
             process.stdout.write(JSON.stringify(this.listTools()) + '\n');
           } else if (req.type === 'listRemoteTools') {
@@ -250,7 +282,7 @@ export class FastMCP extends EventEmitter {
               let found = false;
               for (const client of this.clients) {
                 try {
-                  const resp = await (globalThis as any).fetch(`${client.url}/tool/${req.name}`, {
+                  const resp = await fetch(`${client.url}/tool/${req.name}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(req.params),
@@ -275,8 +307,9 @@ export class FastMCP extends EventEmitter {
           } else {
             process.stdout.write(JSON.stringify({ error: 'Unknown request' }) + '\n');
           }
-        } catch (err: any) {
-          process.stdout.write(JSON.stringify({ error: err.message }) + '\n');
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          process.stdout.write(JSON.stringify({ error: errorMessage }) + '\n');
         }
       });
     }
