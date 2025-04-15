@@ -108,47 +108,56 @@ describe('FastMCP', () => {
 
     it('should list remote tools', async () => {
       const mockTools = [{ name: 'remoteTool', description: 'Remote tool desc' }];
-      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => mockTools,
-      }));
+      });
+      vi.stubGlobal('fetch', fetchMock);
 
       const remoteTools = await server.listRemoteTools();
+      expect(fetchMock).toHaveBeenCalledWith('http://remote-server/tools');
       expect(remoteTools).toEqual([
         { name: 'remoteTool', description: 'Remote tool desc', source: 'remote1' },
       ]);
+      vi.unstubAllGlobals();
     });
 
     it('should list remote resources', async () => {
       const mockResources = [{ name: 'remoteRes', description: 'Remote resource desc' }];
-      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => mockResources,
-      }));
+      });
+      vi.stubGlobal('fetch', fetchMock);
 
       const remoteResources = await server.listRemoteResources();
+      expect(fetchMock).toHaveBeenCalledWith('http://remote-server/resources');
       expect(remoteResources).toEqual([
         { name: 'remoteRes', description: 'Remote resource desc', source: 'remote1' },
       ]);
+      vi.unstubAllGlobals();
     });
 
     it('should list remote prompts', async () => {
       const mockPrompts = [{ name: 'remotePrompt', description: 'Remote prompt desc' }];
-      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => mockPrompts,
-      }));
+      });
+      vi.stubGlobal('fetch', fetchMock);
 
       const remotePrompts = await server.listRemotePrompts();
+      expect(fetchMock).toHaveBeenCalledWith('http://remote-server/prompts');
       expect(remotePrompts).toEqual([
         { name: 'remotePrompt', description: 'Remote prompt desc', source: 'remote1' },
       ]);
+      vi.unstubAllGlobals();
     });
 
     it('should delegate tool invocation to remote MCP server if not found locally', async () => {
       const params = { foo: 'bar' };
       const remoteResult = { result: { remote: true } };
-      vi.stubGlobal('fetch', vi.fn().mockImplementation((url, opts) => {
+      const fetchMock = vi.fn().mockImplementation((url, opts) => {
         if (url === 'http://remote-server/tool/remoteTool' && opts.method === 'POST') {
           return Promise.resolve({
             ok: true,
@@ -156,7 +165,8 @@ describe('FastMCP', () => {
           });
         }
         return Promise.resolve({ ok: false });
-      }));
+      });
+      vi.stubGlobal('fetch', fetchMock);
 
       // Simulate HTTP POST handler logic
       // (directly call the handler for simplicity)
@@ -174,8 +184,23 @@ describe('FastMCP', () => {
         },
       } as any;
 
+      // Patch req.on to call both 'data' and 'end' in order
+      let dataCb: ((chunk: string) => void) | undefined;
+      let endCb: ((chunk: string) => void) | undefined;
+      req.on = (event: string, cb: (chunk: string) => void) => {
+        if (event === 'data') dataCb = cb;
+        if (event === 'end') endCb = cb;
+      };
+      // Actually trigger the callbacks as the real server would
+      await new Promise<void>(resolve => {
+        dataCb && dataCb(JSON.stringify(params));
+        endCb && endCb('');
+        resolve();
+      });
+
       await server.handleRequest(req, res);
       expect(response.result).toEqual(remoteResult.result);
+      vi.unstubAllGlobals();
     });
   });
 });
