@@ -200,6 +200,8 @@ describe('FastMCP', () => {
       });
 
       await server.handleRequest(req, res);
+      // Defensive: If response is undefined, fail with a clear message
+      expect(response).toBeDefined();
       expect(response.result).toEqual(remoteResult.result);
       delete (globalThis as any).fetch;
     });
