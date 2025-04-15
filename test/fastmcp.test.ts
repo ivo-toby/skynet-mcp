@@ -1,3 +1,4 @@
+import { describe, beforeEach, it, expect } from 'vitest';
 import { FastMCP, Tool, Resource, Prompt } from '../src/fastmcp';
 
 describe('FastMCP', () => {
@@ -32,23 +33,17 @@ describe('FastMCP', () => {
 
   it('should register and list tools', () => {
     const tools = server.listTools();
-    expect(tools).toEqual([
-      { name: 'echo', description: 'Echoes the input parameters' },
-    ]);
+    expect(tools).toEqual([{ name: 'echo', description: 'Echoes the input parameters' }]);
   });
 
   it('should register and list resources', () => {
     const resources = server.listResources();
-    expect(resources).toEqual([
-      { name: 'time', description: 'Returns the current server time' },
-    ]);
+    expect(resources).toEqual([{ name: 'time', description: 'Returns the current server time' }]);
   });
 
   it('should register and list prompts', () => {
     const prompts = server.listPrompts();
-    expect(prompts).toEqual([
-      { name: 'hello', description: 'A hello world prompt' },
-    ]);
+    expect(prompts).toEqual([{ name: 'hello', description: 'A hello world prompt' }]);
   });
 
   it('should invoke a tool handler', async () => {

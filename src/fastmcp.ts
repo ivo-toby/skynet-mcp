@@ -46,10 +46,10 @@ export class FastMCP extends EventEmitter {
   constructor(options: FastMCPOptions = {}) {
     super();
     this.mode = options.mode || 'sse';
-    (options.tools || []).forEach(tool => this.registerTool(tool));
-    (options.resources || []).forEach(resource => this.registerResource(resource));
-    (options.prompts || []).forEach(prompt => this.registerPrompt(prompt));
-    this.clients = (options.clients || []).filter(c => c.enabled !== false);
+    (options.tools || []).forEach((tool) => this.registerTool(tool));
+    (options.resources || []).forEach((resource) => this.registerResource(resource));
+    (options.prompts || []).forEach((prompt) => this.registerPrompt(prompt));
+    this.clients = (options.clients || []).filter((c) => c.enabled !== false);
   }
 
   registerTool(tool: Tool) {
@@ -86,7 +86,10 @@ export class FastMCP extends EventEmitter {
   }
 
   listResources() {
-    return Array.from(this.resources.values()).map(({ name, description }) => ({ name, description }));
+    return Array.from(this.resources.values()).map(({ name, description }) => ({
+      name,
+      description,
+    }));
   }
 
   async listRemoteResources() {
@@ -107,7 +110,10 @@ export class FastMCP extends EventEmitter {
   }
 
   listPrompts() {
-    return Array.from(this.prompts.values()).map(({ name, description }) => ({ name, description }));
+    return Array.from(this.prompts.values()).map(({ name, description }) => ({
+      name,
+      description,
+    }));
   }
 
   async listRemotePrompts() {
@@ -161,7 +167,7 @@ export class FastMCP extends EventEmitter {
     if (req.method === 'POST' && req.url?.startsWith('/tool/')) {
       const toolName = req.url.split('/').pop()!;
       let body = '';
-      req.on('data', chunk => (body += chunk));
+      req.on('data', (chunk) => (body += chunk));
       req.on('end', async () => {
         try {
           const params = JSON.parse(body);
@@ -244,7 +250,9 @@ export class FastMCP extends EventEmitter {
                   });
                   if (resp.ok) {
                     const data = await resp.json();
-                    process.stdout.write(JSON.stringify({ result: data.result, remote: client.name }) + '\n');
+                    process.stdout.write(
+                      JSON.stringify({ result: data.result, remote: client.name }) + '\n',
+                    );
                     found = true;
                     break;
                   }
