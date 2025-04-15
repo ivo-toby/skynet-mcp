@@ -1,5 +1,5 @@
-import { describe, beforeEach, it, expect } from 'vitest';
-import { FastMCP, Tool, Resource, Prompt } from '../src/fastmcp';
+import { describe, beforeEach, it, expect, vi } from 'vitest';
+import { FastMCP, Tool, Resource, Prompt, MCPClientConfig } from '../src/fastmcp';
 
 describe('FastMCP', () => {
   let server: FastMCP;
@@ -82,5 +82,100 @@ describe('FastMCP', () => {
     };
     server.registerPrompt(newPrompt);
     expect(server.listPrompts().length).toBe(2);
+  });
+
+  describe('Remote MCP client integration', () => {
+    const remoteClientConfig: MCPClientConfig = {
+      name: 'remote1',
+      url: 'http://remote-server',
+      enabled: true,
+    };
+
+    beforeEach(() => {
+      // Re-initialize server with a remote client
+      server = new FastMCP({
+        tools: [],
+        resources: [],
+        prompts: [],
+        mode: 'sse',
+        clients: [remoteClientConfig],
+      });
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('should list remote tools', async () => {
+      const mockTools = [{ name: 'remoteTool', description: 'Remote tool desc' }];
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => mockTools,
+      }));
+
+      const remoteTools = await server.listRemoteTools();
+      expect(remoteTools).toEqual([
+        { name: 'remoteTool', description: 'Remote tool desc', source: 'remote1' },
+      ]);
+    });
+
+    it('should list remote resources', async () => {
+      const mockResources = [{ name: 'remoteRes', description: 'Remote resource desc' }];
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => mockResources,
+      }));
+
+      const remoteResources = await server.listRemoteResources();
+      expect(remoteResources).toEqual([
+        { name: 'remoteRes', description: 'Remote resource desc', source: 'remote1' },
+      ]);
+    });
+
+    it('should list remote prompts', async () => {
+      const mockPrompts = [{ name: 'remotePrompt', description: 'Remote prompt desc' }];
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => mockPrompts,
+      }));
+
+      const remotePrompts = await server.listRemotePrompts();
+      expect(remotePrompts).toEqual([
+        { name: 'remotePrompt', description: 'Remote prompt desc', source: 'remote1' },
+      ]);
+    });
+
+    it('should delegate tool invocation to remote MCP server if not found locally', async () => {
+      const params = { foo: 'bar' };
+      const remoteResult = { result: { remote: true } };
+      vi.stubGlobal('fetch', vi.fn().mockImplementation((url, opts) => {
+        if (url === 'http://remote-server/tool/remoteTool' && opts.method === 'POST') {
+          return Promise.resolve({
+            ok: true,
+            json: async () => remoteResult,
+          });
+        }
+        return Promise.resolve({ ok: false });
+      }));
+
+      // Simulate HTTP POST handler logic
+      // (directly call the handler for simplicity)
+      let response: any;
+      const res = {
+        writeHead: vi.fn(),
+        end: (data: string) => { response = JSON.parse(data); },
+      } as any;
+      const req = {
+        method: 'POST',
+        url: '/tool/remoteTool',
+        on: (event: string, cb: (chunk: string) => void) => {
+          if (event === 'data') cb(JSON.stringify(params));
+          if (event === 'end') cb('');
+        },
+      } as any;
+
+      await server.handleRequest(req, res);
+      expect(response.result).toEqual(remoteResult.result);
+    });
   });
 });
