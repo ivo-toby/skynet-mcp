@@ -72,13 +72,15 @@ export class FastMCP extends EventEmitter {
     const all: { name: string; description: string; source: string }[] = [];
     for (const client of this.clients) {
       try {
-        const resp = await fetch(`${client.url}/tools`);
+        // Use global fetch to ensure it can be mocked in tests
+        const resp = await (globalThis as any).fetch(`${client.url}/tools`);
         if (!resp.ok) continue;
         const tools = await resp.json();
         for (const t of tools) {
           all.push({ ...t, source: client.name });
         }
-      } catch {
+      } catch (err) {
+        console.error(`Error fetching remote tools from ${client.name}:`, err);
         // ignore unreachable client
       }
     }
@@ -96,13 +98,15 @@ export class FastMCP extends EventEmitter {
     const all: { name: string; description: string; source: string }[] = [];
     for (const client of this.clients) {
       try {
-        const resp = await fetch(`${client.url}/resources`);
+        // Use global fetch to ensure it can be mocked in tests
+        const resp = await (globalThis as any).fetch(`${client.url}/resources`);
         if (!resp.ok) continue;
         const resources = await resp.json();
         for (const r of resources) {
           all.push({ ...r, source: client.name });
         }
-      } catch {
+      } catch (err) {
+        console.error(`Error fetching remote resources from ${client.name}:`, err);
         // ignore unreachable client
       }
     }
@@ -120,13 +124,15 @@ export class FastMCP extends EventEmitter {
     const all: { name: string; description: string; source: string }[] = [];
     for (const client of this.clients) {
       try {
-        const resp = await fetch(`${client.url}/prompts`);
+        // Use global fetch to ensure it can be mocked in tests
+        const resp = await (globalThis as any).fetch(`${client.url}/prompts`);
         if (!resp.ok) continue;
         const prompts = await resp.json();
         for (const p of prompts) {
           all.push({ ...p, source: client.name });
         }
-      } catch {
+      } catch (err) {
+        console.error(`Error fetching remote prompts from ${client.name}:`, err);
         // ignore unreachable client
       }
     }
@@ -181,7 +187,7 @@ export class FastMCP extends EventEmitter {
           // Try remote tools
           for (const client of this.clients) {
             try {
-              const resp = await fetch(`${client.url}/tool/${toolName}`, {
+              const resp = await (globalThis as any).fetch(`${client.url}/tool/${toolName}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(params),
@@ -192,7 +198,8 @@ export class FastMCP extends EventEmitter {
                 res.end(JSON.stringify({ result: data.result, remote: client.name }));
                 return;
               }
-            } catch {
+            } catch (err) {
+              console.error(`Error invoking remote tool ${toolName} from ${client.name}:`, err);
               // ignore and try next
             }
           }
@@ -243,7 +250,7 @@ export class FastMCP extends EventEmitter {
               let found = false;
               for (const client of this.clients) {
                 try {
-                  const resp = await fetch(`${client.url}/tool/${req.name}`, {
+                  const resp = await (globalThis as any).fetch(`${client.url}/tool/${req.name}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(req.params),
@@ -256,7 +263,8 @@ export class FastMCP extends EventEmitter {
                     found = true;
                     break;
                   }
-                } catch {
+                } catch (err) {
+                  console.error(`Error invoking remote tool ${req.name} from ${client.name}:`, err);
                   // ignore and try next
                 }
               }

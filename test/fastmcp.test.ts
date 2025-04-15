@@ -191,10 +191,28 @@ describe('FastMCP', () => {
 
       // Call handleRequest, then manually trigger the data/end events
       const handlePromise = server.handleRequest(req, res);
+      
+      // Wait a bit to ensure the request handler has registered the event handlers
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
       if (dataHandler) dataHandler(JSON.stringify(params));
       if (endHandler) endHandler();
+      
+      // Wait for the promise to resolve
       await handlePromise;
+      
+      // Wait a bit more to ensure async operations complete
+      await new Promise(resolve => setTimeout(resolve, 10));
 
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://remote-server/tool/remoteTool',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(params)
+        })
+      );
+      
       expect(response).toBeDefined();
       expect(response.result).toEqual(remoteResult.result);
       delete (globalThis as any).fetch;
