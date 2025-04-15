@@ -1,6 +1,6 @@
 import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { EventEmitter } from 'events';
-import fetch from 'node-fetch';
+// node-fetch is imported via globalThis.fetch for better testability
 
 export type Tool = {
   name: string;
@@ -139,7 +139,7 @@ export class FastMCP extends EventEmitter {
     return all;
   }
 
-  async handleRequest(req: IncomingMessage, res: ServerResponse) {
+  async handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
     if (req.method === 'GET' && req.url === '/tools') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(this.listTools()));
@@ -215,7 +215,7 @@ export class FastMCP extends EventEmitter {
     res.end(JSON.stringify({ error: 'Not found' }));
   }
 
-  listen(port: number = 8080) {
+  listen(port = 8080): void {
     if (this.mode === 'sse') {
       this.server = createServer(this.handleRequest.bind(this));
       this.server.listen(port, () => {
@@ -225,9 +225,9 @@ export class FastMCP extends EventEmitter {
     } else if (this.mode === 'stdio') {
       // Minimal stdio mode: read JSON lines from stdin, write responses to stdout
       process.stdin.setEncoding('utf-8');
-      process.stdin.on('data', async (data) => {
+      process.stdin.on('data', async (data: Buffer | string) => {
         try {
-          const req = JSON.parse(data);
+          const req = JSON.parse(data.toString());
           if (req.type === 'listTools') {
             process.stdout.write(JSON.stringify(this.listTools()) + '\n');
           } else if (req.type === 'listRemoteTools') {
