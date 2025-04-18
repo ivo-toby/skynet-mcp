@@ -1,0 +1,12 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+---
+description: Tickets and project management
+globs: 
+alwaysApply: true
+---
+
+Always follow project management by working from tickets in [TICKETS.md](mdc:TICKETS.md) and update the tickets after a task has been finished

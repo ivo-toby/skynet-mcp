@@ -3,7 +3,7 @@ declare global {
   interface Window {
     fetch: (url: string, init?: RequestInit) => Promise<Response>;
   }
-  
+
   var fetch: (url: string, init?: RequestInit) => Promise<Response>;
 }
 

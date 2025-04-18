@@ -27,11 +27,11 @@ Each Skynet-MCP instance operates in two modes simultaneously:
 
 2. **Agent Orchestration Engine**
 
-   - Based on Mastra SDK
+   - Based on Mastra.ai SDK
    - Manages agent lifecycle (creation, execution, monitoring, termination)
    - Maintains agent state and execution context
    - Provides progress tracking and status reporting
-   - Uses dynamic workflows from Mastra
+   - Uses dynamic workflows from Mastra to create a workflow and execute it
    - Implements Vercel AI Sdk LLM's for OpenAI, Anthropic, Google and Ollama
    - Implements MCP Client from Mastra for tool usage
 

@@ -1,3 +1,8 @@
+---
+description: Mastra AI Agents framework docs
+globs: 
+alwaysApply: false
+---
 # Documentation from https://mastra.ai
 > Extracted content from docs/reference
 
@@ -6383,7 +6388,7 @@ export const mastra = new Mastra({
 ```
 
 ### Dashboard
-Access your Braintrust dashboard at [braintrust.dev](https://braintrust.dev).
+Access your Braintrust dashboard at [braintrust.dev](mdc:https:/braintrust.dev).
 
 **Last updated**: February 20, 2025
 
@@ -6419,7 +6424,7 @@ export const mastra = new Mastra({
 ```
 
 **Dashboard Access**  
-Visit your Laminar dashboard at: [https://lmnr.ai/](https://lmnr.ai/)  
+Visit your Laminar dashboard at: [https://lmnr.ai/](mdc:https:/lmnr.ai)  
 _Last updated: February 20, 2025_
 
 ----------------------------------------
@@ -6544,7 +6549,7 @@ export const mastra = new Mastra({
 ```
 
 ## Dashboard
-Access the LangWatch dashboard at: [app.langwatch.ai](http://app.langwatch.ai)
+Access the LangWatch dashboard at: [app.langwatch.ai](mdc:http:/app.langwatch.ai)
 
 _Last updated on February 20, 2025._
 
@@ -6582,7 +6587,7 @@ export const mastra = new Mastra({
 ```
 
 **Dashboard:**
-Access telemetry data at [New Relic One Dashboard](https://one.newrelic.com).
+Access telemetry data at [New Relic One Dashboard](mdc:https:/one.newrelic.com).
 
 **Last Updated:** February 20, 2025
 
@@ -6659,6 +6664,6 @@ export const mastra = new Mastra({
 ```
 
 **Dashboard:**
-Access traces and analytics at [app.traceloop.com](https://app.traceloop.com).
+Access traces and analytics at [app.traceloop.com](mdc:https:/app.traceloop.com).
 
 **Last Updated:** February 20, 2025

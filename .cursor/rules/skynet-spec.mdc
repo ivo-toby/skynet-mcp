@@ -1,0 +1,198 @@
+---
+description: Specification of the project
+globs: 
+alwaysApply: false
+---
+# Skynet-MCP Technical Specification
+
+## Project Overview
+Skynet-MCP is an AI agent orchestration system implementing the Model Context Protocol (MCP) as both server and client. It enables hierarchical agent networks for autonomous task decomposition, parallel processing, and result aggregation.
+
+## Core Components
+
+### 1. MCP Server Layer
+- Implements MCP protocol using FastMCP
+- Dual transport support:
+  - Server-Sent Events (SSE) for web clients
+  - STDIO for Claude Desktop (which doesn't support SSE yet)
+- Key endpoints: `/agent/create`, `/agent/status`, `/agent/result`, `/agent/terminate`
+- Tool implementations: `spawn_agent`, `get_agent_status`, `get_agent_result`, `terminate_agent`
+
+### 2. Agent Orchestration Engine
+- Based on Mastra.ai SDK
+- Integrates with Vercel AI SDK for LLM access (OpenAI, Anthropic, Google, Ollama)
+- Implements dynamic workflows for task decomposition and execution
+- Manages agent lifecycle and state
+
+### 3. Memory and Persistence
+- In-memory state management for initial implementation
+- Memory MCP server for optional persistence
+- State serialization for portability
+
+## Technical Implementation
+
+### Agent Configuration
+```typescript
+interface AgentConfig {
+  modelId: string;            // e.g., "anthropic.claude-3-opus"
+  temperature: number;        // e.g., 0.7
+  maxTokens: number;          // e.g., 4096
+  task: {
+    description: string;
+    context?: string;
+    expectedOutput?: string;
+  };
+  mcpTools: string[];         // Available tool IDs
+  timeoutSeconds: number;     // Maximum execution time
+}
+```
+
+### Agent Status Tracking
+```typescript
+interface AgentStatus {
+  agentId: string;
+  status: "initializing" | "running" | "completed" | "failed";
+  progress: number;           // 0.0 to 1.0
+  runningTime: number;        // Seconds
+  childAgents: {
+    agentId: string;
+    status: string;
+    task: string;
+  }[];
+  lastUpdated: string;        // ISO timestamp
+}
+```
+
+### Token Usage Tracking
+```typescript
+interface TokenUsage {
+  agentId: string;
+  modelId: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  timestamp: string;          // ISO timestamp
+}
+```
+
+### Dual-Mode Architecture
+1. Parent interaction (Server Mode):
+   - Listen for incoming requests from orchestrators (Claude Desktop/Cursor)
+   - Expose tool capabilities via MCP protocol
+   - Return aggregated results
+
+2. Child interaction (Client Mode):
+   - Spawn child agents with specific tasks
+   - Monitor child agent status and results
+   - Integrate child outputs into parent context
+
+### Deployment
+1. Docker-based deployment:
+```yaml
+# docker-compose.yml
+version: '3'
+services:
+  skynet-mcp:
+    image: skynet-mcp:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    volumes:
+      - ./config:/app/config
+```
+
+2. Configuration:
+```typescript
+interface MCPServerConfig {
+  server: {
+    port: number;
+    host: string;
+  };
+  agents: {
+    maxConcurrent: number;
+    defaultTimeout: number;
+  };
+  models: {
+    defaultModel: string;
+    availableModels: string[];
+  };
+  mcpServers: {
+    id: string;
+    url: string;
+  }[];
+}
+```
+
+## Implementation Guidelines
+
+### Phase 1 Priorities
+1. Implement basic MCP server/client dual-mode with both SSE and STDIO support
+2. Create agent spawning mechanism
+3. Implement in-memory state management
+4. Integrate with Mastra.ai for workflow generation
+5. Enable basic token usage tracking
+6. Create Docker deployment configuration
+7. Develop comprehensive test suite:
+   - Unit tests for all components
+   - Integration tests for end-to-end workflows
+   - Transport-specific tests for both SSE and STDIO
+
+### Technology Stack
+- Backend: Node.js with TypeScript
+- MCP Implementation: FastMCP
+- Agent Orchestration: Mastra.ai SDK
+- LLM Integrations: Vercel AI SDK
+- Persistence: In-memory with Memory MCP server
+- Deployment: Docker containers
+
+### Best Practices
+1. Use TypeScript interfaces for all data models
+2. Implement comprehensive error handling
+3. Log all agent activities and token usage
+4. Set reasonable timeouts and concurrency limits
+5. Implement rate limiting for API calls
+6. Use dependency injection for testability
+7. Write thorough test coverage:
+   - Unit tests for all components and functions
+   - Integration tests for complete workflows
+   - Mock external dependencies for reliable testing
+   - Test both SSE and STDIO transports
+
+### Security Considerations
+1. API key authentication
+2. Secure storage of LLM credentials
+3. Input validation for all endpoints
+4. Rate limiting and usage tracking
+5. Docker container isolation
+
+## Integration with Claude/Cursor
+- Set up API key authentication for Claude Desktop/Cursor
+- Transport protocol support:
+  - Use SSE for web clients and Cursor
+  - Implement STDIO for Claude Desktop compatibility
+- Implement proper JSON response formatting for both transports
+- Configure CORS for local development
+- Support key-value pair configuration passing
+
+## Testing Strategy
+- **Unit Tests**:
+  - Test each component in isolation
+  - Mock dependencies for reliable testing
+  - Cover edge cases and error handling
+  - Achieve high code coverage (target >80%)
+
+- **Integration Tests**:
+  - Test complete workflows end-to-end
+  - Verify agent hierarchy creation and management
+  - Test task decomposition and result aggregation
+  - Validate both SSE and STDIO transport layers
+
+- **Test Frameworks**:
+  - Vitest for unit testing
+  - Supertest for API endpoint testing
+  - Mock MCP servers for testing client functionality
+  - Docker-compose for integration test environment
