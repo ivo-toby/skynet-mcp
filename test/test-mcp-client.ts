@@ -6,6 +6,8 @@
  */
 import dotenv from 'dotenv';
 import { createCoordinatorAgent } from '../src/mastra/agents/mcp-agent-factory';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
 // Load environment variables
 dotenv.config();
@@ -67,9 +69,13 @@ async function main() {
       console.log('\nTool calls:');
 
       for (const toolCall of response.toolCalls) {
-        console.log(`\nTool: ${toolCall.name}`);
-        console.log(`Input: ${JSON.stringify(toolCall.input, null, 2)}`);
-        console.log(`Output: ${JSON.stringify(toolCall.output, null, 2)}`);
+        console.log(`\nTool: ${toolCall.toolName}`);
+        console.log(`Input: ${JSON.stringify(toolCall.args, null, 2)}`);
+        // Access output safely, using type assertion to handle the property access
+        const output = (toolCall as any).output;
+        if (output) {
+          console.log(`Output: ${JSON.stringify(output, null, 2)}`);
+        }
       }
     }
 
@@ -81,7 +87,9 @@ async function main() {
 }
 
 // Run the main function
-if (require.main === module) {
+// Check if this file is being run directly
+const isMainModule = process.argv[1] === fileURLToPath(import.meta.url);
+if (isMainModule) {
   main().catch(console.error);
 }
 
