@@ -6,9 +6,5 @@ await esbuild.build({
   format: 'esm',
   outfile: './dist/bundle.js',
   target: 'node18',
-  external: ['path', 'url', '@modelcontextprotocol/sdk'], // Treat these modules as external
-  banner: {
-    // Keep only the require shim. __filename/__dirname should be defined in source files where needed.
-    js: `import { createRequire } from 'module';const require = createRequire(import.meta.url);`,
-  },
+  external: ['path', 'url', '@modelcontextprotocol/sdk', 'fastmcp', 'zod'], // Treat these modules as external
 });
