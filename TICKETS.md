@@ -86,7 +86,7 @@ Cursor should update the status field as it progresses through implementation.
 
 ### TICKET-2.2: STDIO Transport Layer
 
-**Status**: `TODO`
+**Status**: `DONE`
 
 **Description**: Implement the STDIO transport layer for Claude Desktop compatibility.
 
@@ -102,7 +102,7 @@ Cursor should update the status field as it progresses through implementation.
 
 ### TICKET-2.3: Transport Layer Abstraction
 
-**Status**: `TODO`
+**Status**: `DONE`
 
 **Description**: Create a unified abstraction layer for transport protocols.
 
@@ -120,7 +120,7 @@ Cursor should update the status field as it progresses through implementation.
 
 ### TICKET-3.1: Agent Lifecycle Management
 
-**Status**: `TODO`
+**Status**: `DONE`
 
 **Description**: Implement core agent lifecycle management functionality.
 
@@ -152,7 +152,7 @@ Cursor should update the status field as it progresses through implementation.
 
 ### TICKET-3.3: Agent Hierarchies
 
-**Status**: `TODO`
+**Status**: `IN_PROGRESS`
 
 **Description**: Implement support for hierarchical agent structures.
 
@@ -170,7 +170,7 @@ Cursor should update the status field as it progresses through implementation.
 
 ### TICKET-4.1: In-Memory State Management
 
-**Status**: `TODO`
+**Status**: `DONE`
 
 **Description**: Implement the in-memory persistence layer for agent state.
 
@@ -236,4 +236,14 @@ Cursor should update the status field as it progresses through implementation.
 
 ### TICKET-5.2: Token Usage Tracking
 
-**Status**: `
+**Status**: `DONE`
+
+**Description**: Implement token usage tracking for LLM calls.
+
+**Acceptance Criteria**:
+
+- Create token usage tracking mechanisms
+- Implement reporting for token consumption
+- Add cost estimation capabilities
+- Support usage limits and alerts
+- Write unit tests for token tracking
