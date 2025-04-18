@@ -19,7 +19,7 @@ Cursor should update the status field as it progresses through implementation.
 
 ### TICKET-1.1: Project Initialization
 
-**Status**: `TODO`
+**Status**: `DONE`
 
 **Description**: Initialize the project with TypeScript configuration, directory structure, and basic dependencies.
 
@@ -36,7 +36,7 @@ Cursor should update the status field as it progresses through implementation.
 
 ### TICKET-1.2: MCP Server Interface Definition
 
-**Status**: `IN_PROGRESS`
+**Status**: `DONE`
 
 **Description**: Define the core interfaces and types for the MCP server implementation.
 
