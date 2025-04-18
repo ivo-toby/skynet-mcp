@@ -120,7 +120,7 @@ Cursor should update the status field as it progresses through implementation.
 
 ### TICKET-3.1: Agent Lifecycle Management
 
-**Status**: `DONE`
+**Status**: `IN_PROGRESS`
 
 **Description**: Implement core agent lifecycle management functionality.
 
