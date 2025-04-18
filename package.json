@@ -17,6 +17,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:docker": "DOCKER_TEST=true vitest run test/docker.test.ts",
+    "test:workflow": "tsx test/test-workflow.ts",
     "checktypes": "tsc -noEmit -p tsconfig.json",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
@@ -58,14 +59,15 @@
     "msw": "^2.7.3",
     "prettier": "^3.5.3",
     "semantic-release": "^24.2.3",
+    "tsx": "^4.19.3",
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.28.0",
     "vitest": "^3.0.8"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^1.2.1",
+    "@ai-sdk/anthropic": "^1.2.10",
     "@ai-sdk/google": "^1.2.3",
-    "@ai-sdk/openai": "^1.3.1",
+    "@ai-sdk/openai": "^1.3.16",
     "@mastra/core": "^0.6.4",
     "@modelcontextprotocol/sdk": "^1.9.0",
     "ai": "^4.2.2",
@@ -74,6 +76,6 @@
     "mastra": "^0.4.3",
     "node-fetch": "^3.3.2",
     "uuid": "^11.1.0",
-    "zod": "^3.24.2"
+    "zod": "^3.24.3"
   }
 }
