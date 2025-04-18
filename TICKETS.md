@@ -36,7 +36,7 @@ Cursor should update the status field as it progresses through implementation.
 
 ### TICKET-1.2: MCP Server Interface Definition
 
-**Status**: `TODO`
+**Status**: `IN_PROGRESS`
 
 **Description**: Define the core interfaces and types for the MCP server implementation.
 
