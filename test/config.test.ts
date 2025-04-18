@@ -57,7 +57,6 @@ describe('Configuration System', () => {
     expect(config.server?.logLevel).toBe('info');
     expect(config.server?.transport).toBe('sse');
     // Expect the default structure created by Zod
-    // The outer default({}) combined with inner optional() results in empty objects
     expect(config.llmProviders).toEqual({
       openai: {},
       anthropic: {},

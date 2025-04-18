@@ -34,11 +34,11 @@ describe('MCP SDK Integration', () => {
     expect(client).toBeDefined();
   });
 
-  it('should be using MCP SDK version 1.7.0', () => {
+  it('should be using MCP SDK version 1.9.0', () => {
     // This test verifies we're using the expected SDK version
     // The version is hardcoded in our getSdkVersion helper
-    expect(process.env.npm_package_dependencies_modelcontextprotocol_sdk || '1.7.0').toContain(
-      '1.7.0',
+    expect(process.env.npm_package_dependencies_modelcontextprotocol_sdk || '1.9.0').toContain(
+      '1.9.0',
     );
   });
 });
