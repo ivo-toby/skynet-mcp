@@ -70,7 +70,7 @@ Cursor should update the status field as it progresses through implementation.
 
 ### TICKET-2.1: SSE Transport Layer
 
-**Status**: `TODO`
+**Status**: `IN_PROGRESS`
 
 **Description**: Implement the Server-Sent Events (SSE) transport layer for the MCP server.
 
