@@ -126,19 +126,42 @@ const jsonMcpServers = loadJsonConfig(mcpServersConfigPath);
 const jsonAppConfig = loadJsonConfig(appConfigPath);
 
 // 3. Merge Configurations (Override Order: Env > JSON)
-// Simple merge, deep merge might be needed for complex structures
+// Perform a deeper merge for nested objects like llmProviders
+const deepMerge = (target: any, source: any): any => {
+  if (
+    typeof target !== 'object' ||
+    target === null ||
+    typeof source !== 'object' ||
+    source === null
+  ) {
+    return source !== undefined ? source : target;
+  }
+
+  const output = { ...target };
+  for (const key in source) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      const targetValue = target[key];
+      const sourceValue = source[key];
+
+      if (typeof targetValue === 'object' && typeof sourceValue === 'object') {
+        output[key] = deepMerge(targetValue, sourceValue);
+      } else if (sourceValue !== undefined) {
+        output[key] = sourceValue;
+      }
+    }
+  }
+  return output;
+};
+
 const mergedConfig = {
-  ...jsonAppConfig, // Lowest priority
-  // We might merge specific sections from other JSONs if needed
-  mcpClients: jsonMcpClients.mcpClients || [], // Assuming mcp-clients.json has a root 'mcpClients' key
-  mcpServers: jsonMcpServers.mcpServers || [], // Assuming mcp-servers.json has a root 'mcpServers' key
-  ...cleanedEnvConfig, // Highest priority
-  // Ensure nested objects are merged correctly (simple example)
-  server: { ...(jsonAppConfig.server as object), ...cleanedEnvConfig.server },
-  llmProviders: {
-    ...(jsonAppConfig.llmProviders as object),
-    ...cleanedEnvConfig.llmProviders,
-  },
+  ...jsonAppConfig, // Base JSON config
+  // Merge server config
+  server: deepMerge(jsonAppConfig.server || {}, cleanedEnvConfig.server || {}),
+  // Merge llmProviders config
+  llmProviders: deepMerge(jsonAppConfig.llmProviders || {}, cleanedEnvConfig.llmProviders || {}),
+  // Merge specific JSON file arrays (env vars don't typically set arrays)
+  mcpClients: jsonMcpClients.mcpClients || [],
+  mcpServers: jsonMcpServers.mcpServers || [],
 };
 
 // 4. Validate the final configuration

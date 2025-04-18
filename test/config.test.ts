@@ -4,9 +4,17 @@ import path from 'node:path';
 
 // Mock dependencies before importing the config module
 vi.mock('node:fs');
-vi.mock('dotenv', () => ({
-  config: vi.fn(), // Mock dotenv.config()
-}));
+vi.mock('dotenv', () => {
+  return {
+    config: vi.fn(), // Mock the config function
+    // We assume `dotenv` might have a default export or other structure
+    // that Vitest is looking for. Providing the named export explicitly
+    // within the returned object should resolve this.
+    default: {
+      config: vi.fn(),
+    },
+  };
+});
 
 describe('Configuration System', () => {
   let originalEnv: NodeJS.ProcessEnv;
@@ -16,6 +24,22 @@ describe('Configuration System', () => {
     vi.resetModules(); // Important to re-evaluate the config module
     vi.clearAllMocks();
     originalEnv = { ...process.env }; // Backup original env
+
+    // Clear potentially interfering environment variables
+    delete process.env.SKYNET_SERVER_PORT;
+    delete process.env.SKYNET_LOG_LEVEL;
+    delete process.env.SKYNET_TRANSPORT_TYPE;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.OPENAI_BASE_URL;
+    delete process.env.ANTHROPIC_API_KEY;
+    delete process.env.ANTHROPIC_BASE_URL;
+    delete process.env.GOOGLE_API_KEY;
+    delete process.env.GOOGLE_BASE_URL;
+    delete process.env.OLLAMA_API_KEY;
+    delete process.env.OLLAMA_BASE_URL;
+    delete process.env.MCP_CLIENTS_CONFIG_PATH;
+    delete process.env.MCP_SERVERS_CONFIG_PATH;
+    delete process.env.APP_CONFIG_PATH;
   });
 
   afterEach(() => {
@@ -32,7 +56,14 @@ describe('Configuration System', () => {
     expect(config.server?.port).toBe(3000);
     expect(config.server?.logLevel).toBe('info');
     expect(config.server?.transport).toBe('sse');
-    expect(config.llmProviders).toEqual({});
+    // Expect the default structure created by Zod
+    // The outer default({}) combined with inner optional() results in empty objects
+    expect(config.llmProviders).toEqual({
+      openai: {},
+      anthropic: {},
+      google: {},
+      ollama: {},
+    });
     expect(config.mcpClients).toEqual([]);
   });
 
