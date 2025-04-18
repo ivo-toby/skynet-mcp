@@ -17,7 +17,7 @@ export const mastra = new Mastra({
  * Helper function to get an agent by name
  */
 export const getAgent = (agentName: string) => {
-  return mastra.getAgent(agentName);
+  return mastra.getAgent(agentName as any);
 };
 
 /**
