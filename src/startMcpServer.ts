@@ -1,6 +1,6 @@
 import { FastMCP, ContentResult } from 'fastmcp';
 import { z } from 'zod';
-import { createServer } from 'http';
+import { createServer, Server as HttpServer } from 'http';
 import { v4 as uuidv4 } from 'uuid';
 import { Agent } from './types';
 
@@ -14,11 +14,18 @@ interface StartMcpServerOptions {
 // Global agent store
 const agents: Record<string, Agent> = {};
 
-export async function startMcpServer(options: StartMcpServerOptions) {
+export async function startMcpServer(
+  options: StartMcpServerOptions,
+): Promise<{ httpServer: HttpServer | null }> {
   // Create a FastMCP server
   const server = new FastMCP({
     name: options.name,
     version: '1.0.0', // Fixed semver format version
+  });
+
+  // Adding generic error handling (using any to bypass type restrictions)
+  server.on('error' as any, (error: Error) => {
+    console.error('FastMCP server error:', error);
   });
 
   // Add spawn_agent tool
@@ -197,25 +204,48 @@ export async function startMcpServer(options: StartMcpServerOptions) {
     },
   });
 
+  let serverOptions: any;
+  let httpServer: HttpServer | null = null;
+
   // Start the server with the specified transport
   if (options.transport === 'stdio') {
-    server.start({
+    serverOptions = {
       transportType: 'stdio',
-    });
-    return { httpServer: null };
+    };
   } else {
     // SSE transport
-    const httpServer = createServer();
+    httpServer = createServer();
 
-    // Start the server
-    server.start({
+    serverOptions = {
       transportType: 'sse',
       sse: {
         endpoint: '/sse',
         port: options.port,
       },
-    });
+    };
+  }
+
+  // Configure error handlers
+  serverOptions.onError = (error: Error) => {
+    console.error('Connection error:', error.message);
+    // Prevent crash on connection errors
+    if (error.message.includes('Not connected')) {
+      console.warn('Client connection error detected. This is expected when clients disconnect.');
+      return;
+    }
+    // Let other errors propagate
+  };
+
+  // Start the server with error handling
+  try {
+    server.start(serverOptions);
+    console.log(
+      `server is running on ${options.transport} ${options.transport === 'sse' ? `at http://localhost:${options.port}/sse` : ''}`,
+    );
 
     return { httpServer };
+  } catch (error) {
+    console.error('Failed to start MCP server:', error);
+    throw error;
   }
 }

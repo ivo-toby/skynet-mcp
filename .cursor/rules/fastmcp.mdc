@@ -3,7 +3,8 @@ description: Specification of FastMCP
 globs: 
 alwaysApply: false
 ---
-This file is a merged representation of the entire codebase, combined into a single document by Repomix. The content has been processed where security check has been disabled.
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+The content has been processed where security check has been disabled.
 
 # File Summary
 
@@ -35,6 +36,7 @@ The content is organized as follows:
 - Files matching patterns in .gitignore are excluded
 - Files matching default ignore patterns are excluded
 - Security check has been disabled - content may contain sensitive information
+- Files are sorted by Git change count (files with more changes are at the bottom)
 
 ## Additional Info
 
@@ -220,20 +222,60 @@ await yargs(hideBin(process.argv))
  */
 import { FastMCP } from "../FastMCP.js";
 import { z } from "zod";
+import { type } from "arktype";
+import * as v from "valibot";
 
 const server = new FastMCP({
   name: "Addition",
   version: "1.0.0",
 });
 
+// --- Zod Example ---
+const AddParamsZod = z.object({
+  a: z.number().describe("The first number"),
+  b: z.number().describe("The second number"),
+});
+
 server.addTool({
-  name: "add",
-  description: "Add two numbers",
-  parameters: z.object({
-    a: z.number(),
-    b: z.number(),
-  }),
+  name: "add-zod",
+  description: "Add two numbers (using Zod schema)",
+  parameters: AddParamsZod,
   execute: async (args) => {
+    // args is typed as { a: number, b: number }
+    console.log(`[Zod] Adding ${args.a} and ${args.b}`);
+    return String(args.a + args.b);
+  },
+});
+
+// --- ArkType Example ---
+const AddParamsArkType = type({
+  a: "number",
+  b: "number",
+});
+
+server.addTool({
+  name: "add-arktype",
+  description: "Add two numbers (using ArkType schema)",
+  parameters: AddParamsArkType,
+  execute: async (args) => {
+    // args is typed as { a: number, b: number } based on AddParamsArkType.infer
+    console.log(`[ArkType] Adding ${args.a} and ${args.b}`);
+    return String(args.a + args.b);
+  },
+});
+
+// --- Valibot Example ---
+const AddParamsValibot = v.object({
+  a: v.number("The first number"),
+  b: v.number("The second number"),
+});
+
+server.addTool({
+  name: "add-valibot",
+  description: "Add two numbers (using Valibot schema)",
+  parameters: AddParamsValibot,
+  execute: async (args) => {
+    console.log(`[Valibot] Adding ${args.a} and ${args.b}`);
     return String(args.a + args.b);
   },
 });
@@ -1972,7 +2014,8 @@ import {
   ServerCapabilities,
   SetLevelRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { zodToJsonSchema } from "zod-to-json-schema";
+import { StandardSchemaV1 } from "@standard-schema/spec";
+import { toJsonSchema } from "xsschema";
 import { z } from "zod";
 import { setTimeout as delay } from "timers/promises";
 import { readFile } from "fs/promises";
@@ -2065,7 +2108,7 @@ export class UnexpectedStateError extends FastMCPError {
  */
 export class UserError extends UnexpectedStateError {}
 
-type ToolParameters = z.ZodTypeAny;
+type ToolParameters = StandardSchemaV1;
 
 type Literal = boolean | null | number | string | undefined;
 
@@ -2179,7 +2222,7 @@ type Tool<T extends FastMCPSessionAuth, Params extends ToolParameters = ToolPara
   description?: string;
   parameters?: Params;
   execute: (
-    args: z.infer<Params>,
+    args: StandardSchemaV1.InferOutput<Params>,
     context: Context<T>,
   ) => Promise<string | ContentResult | TextContent | ImageContent>;
 };
@@ -2426,7 +2469,7 @@ export class FastMCPSession<T extends FastMCPSessionAuth = FastMCPSessionAuth> e
       ...inputResourceTemplate,
       complete: async (name: string, value: string) => {
         if (completers[name]) {
-          return await completers[name](mdc:value);
+          return await completers[name](value);
         }
 
         return {
@@ -2456,7 +2499,7 @@ export class FastMCPSession<T extends FastMCPSessionAuth = FastMCPSessionAuth> e
       ...inputPrompt,
       complete: async (name: string, value: string) => {
         if (completers[name]) {
-          return await completers[name](mdc:value);
+          return await completers[name](value);
         }
 
         if (enums[name]) {
@@ -2667,15 +2710,15 @@ export class FastMCPSession<T extends FastMCPSessionAuth = FastMCPSessionAuth> e
   private setupToolHandlers(tools: Tool<T>[]) {
     this.#server.setRequestHandler(ListToolsRequestSchema, async () => {
       return {
-        tools: tools.map((tool) => {
+        tools: await Promise.all(tools.map(async (tool) => {
           return {
             name: tool.name,
             description: tool.description,
             inputSchema: tool.parameters
-              ? zodToJsonSchema(tool.parameters)
+              ? await toJsonSchema(tool.parameters)
               : undefined,
           };
-        }),
+        })),
       };
     });
 
@@ -2692,16 +2735,18 @@ export class FastMCPSession<T extends FastMCPSessionAuth = FastMCPSessionAuth> e
       let args: any = undefined;
 
       if (tool.parameters) {
-        const parsed = tool.parameters.safeParse(request.params.arguments);
+        const parsed = await tool.parameters["~standard"].validate(
+          request.params.arguments
+        );
 
-        if (!parsed.success) {
+        if (parsed.issues) {
           throw new McpError(
             ErrorCode.InvalidParams,
             `Invalid ${request.params.name} parameters`,
           );
         }
 
-        args = parsed.data;
+        args = parsed.value;
       }
 
       const progressToken = request.params?._meta?.progressToken;
@@ -3211,6 +3256,7 @@ OTHER DEALINGS IN THE SOFTWARE.
   "types": "dist/FastMCP.d.ts",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.6.0",
+    "@standard-schema/spec": "^1.0.0",
     "execa": "^9.5.2",
     "file-type": "^20.3.0",
     "fuse.js": "^7.1.0",
@@ -3218,9 +3264,10 @@ OTHER DEALINGS IN THE SOFTWARE.
     "strict-event-emitter-types": "^2.0.0",
     "undici": "^7.4.0",
     "uri-templates": "^0.2.0",
+    "xsschema": "0.2.0-beta.2",
     "yargs": "^17.7.2",
     "zod": "^3.24.2",
-    "zod-to-json-schema": "^3.24.3"
+    "zod-to-json-schema": "^3.24.5"
   },
   "repository": {
     "url": "https://github.com/punkpeye/fastmcp"
@@ -3244,6 +3291,8 @@ OTHER DEALINGS IN THE SOFTWARE.
     "@types/node": "^22.13.5",
     "@types/uri-templates": "^0.1.34",
     "@types/yargs": "^17.0.33",
+    "@valibot/to-json-schema": "^1.0.0",
+    "arktype": "^2.1.16",
     "eslint": "^9.21.0",
     "eslint-plugin-perfectionist": "^4.9.0",
     "eventsource-client": "^1.1.3",
@@ -3253,6 +3302,7 @@ OTHER DEALINGS IN THE SOFTWARE.
     "semantic-release": "^24.2.3",
     "tsup": "^8.4.0",
     "typescript": "^5.7.3",
+    "valibot": "^1.0.0",
     "vitest": "^3.0.7"
   },
   "tsup": {
@@ -3275,29 +3325,29 @@ OTHER DEALINGS IN THE SOFTWARE.
 ````markdown
 # FastMCP
 
-A TypeScript framework for building [MCP](mdc:https:/glama.ai/mcp) servers capable of handling client sessions.
+A TypeScript framework for building [MCP](https://glama.ai/mcp) servers capable of handling client sessions.
 
 > [!NOTE]
 >
-> For a Python implementation, see [FastMCP](mdc:https:/github.com/jlowin/fastmcp).
+> For a Python implementation, see [FastMCP](https://github.com/jlowin/fastmcp).
 
 ## Features
 
 - Simple Tool, Resource, Prompt definition
-- [Authentication](mdc:#authentication)
-- [Sessions](mdc:#sessions)
-- [Image content](mdc:#returning-an-image)
-- [Logging](mdc:#logging)
-- [Error handling](mdc:#errors)
-- [SSE](mdc:#sse)
+- [Authentication](#authentication)
+- [Sessions](#sessions)
+- [Image content](#returning-an-image)
+- [Logging](#logging)
+- [Error handling](#errors)
+- [SSE](#sse)
 - CORS (enabled by default)
-- [Progress notifications](mdc:#progress)
-- [Typed server events](mdc:#typed-server-events)
-- [Prompt argument auto-completion](mdc:#prompt-argument-auto-completion)
-- [Sampling](mdc:#requestsampling)
+- [Progress notifications](#progress)
+- [Typed server events](#typed-server-events)
+- [Prompt argument auto-completion](#prompt-argument-auto-completion)
+- [Sampling](#requestsampling)
 - Automated SSE pings
 - Roots
-- CLI for [testing](mdc:#test-with-mcp-cli) and [debugging](mdc:#inspect-with-mcp-inspector)
+- CLI for [testing](#test-with-mcp-cli) and [debugging](#inspect-with-mcp-inspector)
 
 ## Installation
 
@@ -3307,9 +3357,13 @@ npm install fastmcp
 
 ## Quickstart
 
+> [!NOTE]
+>
+> There are many real-world examples of using FastMCP in the wild. See the [Showcase](#showcase) for examples.
+
 ```ts
 import { FastMCP } from "fastmcp";
-import { z } from "zod";
+import { z } from "zod"; // Or any validation library that supports Standard Schema
 
 const server = new FastMCP({
   name: "My Server",
@@ -3341,7 +3395,8 @@ You can test the server in terminal with:
 git clone https://github.com/punkpeye/fastmcp.git
 cd fastmcp
 
-npm install
+pnpm install
+pnpm build
 
 # Test the addition server example using CLI:
 npx fastmcp dev src/examples/addition.ts
@@ -3350,6 +3405,8 @@ npx fastmcp inspect src/examples/addition.ts
 ```
 
 ### SSE
+
+[Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events) (SSE) provide a mechanism for servers to send real-time updates to clients over an HTTPS connection. In the context of MCP, SSE is primarily used to enable remote MCP communication, allowing an MCP hosted on a remote machine to be accessed and relay updates over the network.
 
 You can also run the server with SSE support:
 
@@ -3389,14 +3446,56 @@ await client.connect(transport);
 
 ### Tools
 
-[Tools](mdc:https:/modelcontextprotocol.io/docs/concepts/tools) in MCP allow servers to expose executable functions that can be invoked by clients and used by LLMs to perform actions.
+[Tools](https://modelcontextprotocol.io/docs/concepts/tools) in MCP allow servers to expose executable functions that can be invoked by clients and used by LLMs to perform actions.
 
-```js
+FastMCP uses the [Standard Schema](https://standardschema.dev) specification for defining tool parameters. This allows you to use your preferred schema validation library (like Zod, ArkType, or Valibot) as long as it implements the spec.
+
+**Zod Example:**
+
+```typescript
+import { z } from "zod";
+
 server.addTool({
-  name: "fetch",
-  description: "Fetch the content of a url",
+  name: "fetch-zod",
+  description: "Fetch the content of a url (using Zod)",
   parameters: z.object({
     url: z.string(),
+  }),
+  execute: async (args) => {
+    return await fetchWebpageContent(args.url);
+  },
+});
+```
+
+**ArkType Example:**
+
+```typescript
+import { type } from "arktype";
+
+server.addTool({
+  name: "fetch-arktype",
+  description: "Fetch the content of a url (using ArkType)",
+  parameters: type({
+    url: "string",
+  }),
+  execute: async (args) => {
+    return await fetchWebpageContent(args.url);
+  },
+});
+```
+
+**Valibot Example:**
+
+Valibot requires the peer dependency @valibot/to-json-schema.
+
+```typescript
+import * as v from "valibot";
+
+server.addTool({
+  name: "fetch-valibot",
+  description: "Fetch the content of a url (using Valibot)",
+  parameters: v.object({
+    url: v.string(),
   }),
   execute: async (args) => {
     return await fetchWebpageContent(args.url);
@@ -3620,7 +3719,7 @@ server.addTool({
 
 ### Resources
 
-[Resources](mdc:https:/modelcontextprotocol.io/docs/concepts/resources) represent any kind of data that an MCP server wants to make available to clients. This can include:
+[Resources](https://modelcontextprotocol.io/docs/concepts/resources) represent any kind of data that an MCP server wants to make available to clients. This can include:
 
 - File contents
 - Screenshots and images
@@ -3730,7 +3829,7 @@ server.addResourceTemplate({
 
 ### Prompts
 
-[Prompts](mdc:https:/modelcontextprotocol.io/docs/concepts/prompts) enable servers to define reusable prompt templates and workflows that clients can easily surface to users and LLMs. They provide a powerful way to standardize and share common LLM interactions.
+[Prompts](https://modelcontextprotocol.io/docs/concepts/prompts) enable servers to define reusable prompt templates and workflows that clients can easily surface to users and LLMs. They provide a powerful way to standardize and share common LLM interactions.
 
 ```ts
 server.addPrompt({
@@ -3870,11 +3969,11 @@ server.on("disconnect", (event) => {
 
 `FastMCPSession` represents a client session and provides methods to interact with the client.
 
-Refer to [Sessions](mdc:#sessions) for examples of how to obtain a `FastMCPSession` instance.
+Refer to [Sessions](#sessions) for examples of how to obtain a `FastMCPSession` instance.
 
 ### `requestSampling`
 
-`requestSampling` creates a [sampling](mdc:https:/modelcontextprotocol.io/docs/concepts/sampling) request and returns the response.
+`requestSampling` creates a [sampling](https://modelcontextprotocol.io/docs/concepts/sampling) request and returns the response.
 
 ```ts
 await session.requestSampling({
@@ -3950,11 +4049,11 @@ npx fastmcp dev server.js
 npx fastmcp dev server.ts
 ```
 
-This will run your server with [`mcp-cli`](mdc:https:/github.com/wong2/mcp-cli) for testing and debugging your MCP server in the terminal.
+This will run your server with [`mcp-cli`](https://github.com/wong2/mcp-cli) for testing and debugging your MCP server in the terminal.
 
 ### Inspect with `MCP Inspector`
 
-Another way is to use the official [`MCP Inspector`](mdc:https:/modelcontextprotocol.io/docs/tools/inspector) to inspect your server with a Web UI:
+Another way is to use the official [`MCP Inspector`](https://modelcontextprotocol.io/docs/tools/inspector) to inspect your server with a Web UI:
 
 ```bash
 npx fastmcp inspect server.ts
@@ -3987,16 +4086,22 @@ Follow the guide https://modelcontextprotocol.io/quickstart/user and add the fol
 
 > [!NOTE]
 >
-> If you've developed a server using FastMCP, please [submit a PR](mdc:https:/github.com/punkpeye/fastmcp) to showcase it here!
+> If you've developed a server using FastMCP, please [submit a PR](https://github.com/punkpeye/fastmcp) to showcase it here!
 
-- https://github.com/apinetwork/piapi-mcp-server
-- https://github.com/Meeting-Baas/meeting-mcp - Meeting BaaS MCP server that enables AI assistants to create meeting bots, search transcripts, and manage recording data
+- [apinetwork/piapi-mcp-server](https://github.com/apinetwork/piapi-mcp-server) - generate media using Midjourney/Flux/Kling/LumaLabs/Udio/Chrip/Trellis
+- [domdomegg/computer-use-mcp](https://github.com/domdomegg/computer-use-mcp) - controls your computer
+- [LiterallyBlah/Dradis-MCP](https://github.com/LiterallyBlah/Dradis-MCP) – manages projects and vulnerabilities in Dradis
+- [Meeting-Baas/meeting-mcp](https://github.com/Meeting-Baas/meeting-mcp) - create meeting bots, search transcripts, and manage recording data
+- [drumnation/unsplash-smart-mcp-server](https://github.com/drumnation/unsplash-smart-mcp-server) – enables AI agents to seamlessly search, recommend, and deliver professional stock photos from Unsplash
+- [ssmanji89/halopsa-workflows-mcp](https://github.com/ssmanji89/halopsa-workflows-mcp) - HaloPSA Workflows integration with AI assistants
+- [aiamblichus/mcp-chat-adapter](https://github.com/aiamblichus/mcp-chat-adapter) – provides a clean interface for LLMs to use chat completion
+- [cswkim/discogs-mcp-server](https://github.com/cswkim/discogs-mcp-server) - connects to the Discogs API for interacting with your music collection
 
 ## Acknowledgements
 
-- FastMCP is inspired by the [Python implementation](mdc:https:/github.com/jlowin/fastmcp) by [Jonathan Lowin](mdc:https:/github.com/jlowin).
-- Parts of codebase were adopted from [LiteMCP](mdc:https:/github.com/wong2/litemcp).
-- Parts of codebase were adopted from [Model Context protocolでSSEをやってみる](mdc:https:/dev.classmethod.jp/articles/mcp-sse).
+- FastMCP is inspired by the [Python implementation](https://github.com/jlowin/fastmcp) by [Jonathan Lowin](https://github.com/jlowin).
+- Parts of codebase were adopted from [LiteMCP](https://github.com/wong2/litemcp).
+- Parts of codebase were adopted from [Model Context protocolでSSEをやってみる](https://dev.classmethod.jp/articles/mcp-sse/).
 ````
 
 ## File: tsconfig.json
