@@ -41,13 +41,33 @@ export const createMcpConfig = (options?: { port?: number; memoryServerUrl?: str
   return new MCPConfiguration({
     servers: {
       // Our own Skynet-MCP server running locally
-      skynet: {
-        url: new URL(`http://localhost:${port}/sse`),
-      },
+      // skynet: {
+      //   url: new URL(`http://localhost:${port}/sse`),
+      // },
 
-      // Memory MCP server for persistence
+      tavily: {
+        command: '/Users/ivo/.nvm/versions/node/v18.16.1/bin/node',
+        args: ['/Users/ivo/.claude/node_modules/tavily-mcp/build/index.js'],
+        env: {
+          TAVILY_API_KEY: process.env.TAVILY_API_KEY || '',
+        },
+      },
+      braveSearch: {
+        command: '/Users/ivo/.nvm/versions/node/v18.16.1/bin/node',
+        args: [
+          '/Users/ivo/.claude/node_modules/@modelcontextprotocol/server-brave-search/dist/index.js',
+        ],
+        env: {
+          BRAVE_API_KEY: process.env.BRAVE_API_KEY || '',
+        },
+      },
+      // Memory MCP server for persistencoe
       memory: {
-        url: new URL(memoryServerUrl),
+        command: 'npx',
+        args: ['-y', '@modelcontextprotocol/server-memory'],
+        env: {
+          MEMORY_FILE_PATH: '/Users/ivo/Documents/dotfiles/Claude/memory/memory.json',
+        },
       },
 
       // Sequential thinking for complex reasoning
@@ -57,9 +77,9 @@ export const createMcpConfig = (options?: { port?: number; memoryServerUrl?: str
       },
 
       // Additional tool servers that can be useful
-      fetch: {
-        command: 'npx',
-        args: ['-y', '@modelcontextprotocol/server-fetch'],
+      fetchUrl: {
+        command: 'uvx',
+        args: ['mcp-server-fetch'],
       },
     },
   });
