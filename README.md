@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/ivo-toby-skynet-mcp-badge.png)](https://mseep.ai/app/ivo-toby-skynet-mcp)
+
 # Skynet-MCP (THIS PROJECT IS A WORK IN PROGRESS)
 
 A hierarchical network of AI agents using the Model Context Protocol (MCP). The AI Agents in this network can spawn new agents to have them do work, each agent also includes all the tools that the initiating agent has.
