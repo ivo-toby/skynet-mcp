@@ -1,9 +1,11 @@
 """Ollama provider implementation for local models."""
 
+import json
+
 import ollama
 
 from src.config.models import ProviderConfig
-from src.types import CompletionResponse, GenerationParams, Message
+from src.types import CompletionResponse, GenerationParams, Message, ToolCall
 
 
 class OllamaProvider:
@@ -66,15 +68,35 @@ class OllamaProvider:
                 *messages,
             ]
 
+        # Prepare request params
+        request_params = {
+            "model": self.model,
+            "messages": messages,
+            "options": options,
+        }
+
+        # Add tools if provided
+        if params.get("tools"):
+            request_params["tools"] = params["tools"]
+
         # Call API
-        response = await self.client.chat(
-            model=self.model,
-            messages=messages,
-            options=options,
-        )
+        response = await self.client.chat(**request_params)
 
         # Extract response content
         content = response["message"]["content"] if "message" in response else ""
+
+        # Extract tool calls
+        tool_calls: list[ToolCall] = []
+        if "message" in response and "tool_calls" in response["message"]:
+            for idx, tool_call in enumerate(response["message"]["tool_calls"]):
+                # Ollama tool call format
+                tool_calls.append(
+                    ToolCall(
+                        id=f"ollama_{tool_call.get('function', {}).get('name', 'unknown')}_{idx}",
+                        name=tool_call.get("function", {}).get("name", ""),
+                        input=json.loads(tool_call.get("function", {}).get("arguments", "{}")),
+                    )
+                )
 
         # Extract token usage (Ollama provides eval counts)
         input_tokens = response.get("prompt_eval_count", 0)
@@ -85,4 +107,5 @@ class OllamaProvider:
             stop_reason=response.get("done_reason"),
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            tool_calls=tool_calls,
         )

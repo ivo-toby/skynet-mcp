@@ -5,7 +5,7 @@ import os
 from openai import AsyncOpenAI
 
 from src.config.models import ProviderConfig
-from src.types import CompletionResponse, GenerationParams, Message
+from src.types import CompletionResponse, GenerationParams, Message, ToolCall
 
 
 class OpenAICompatibleProvider:
@@ -77,16 +77,34 @@ class OpenAICompatibleProvider:
         # Note: top_k not supported by OpenAI API
         # It will be ignored if provided
 
+        # Add tools if provided
+        if params.get("tools"):
+            request_params["tools"] = params["tools"]
+
         # Call API
         response = await self.client.chat.completions.create(**request_params)
 
-        # Extract response content
+        # Extract response content and tool calls
         content = response.choices[0].message.content or ""
         stop_reason = response.choices[0].finish_reason
+
+        tool_calls: list[ToolCall] = []
+        if response.choices[0].message.tool_calls:
+            for tool_call in response.choices[0].message.tool_calls:
+                import json
+
+                tool_calls.append(
+                    ToolCall(
+                        id=tool_call.id,
+                        name=tool_call.function.name,
+                        input=json.loads(tool_call.function.arguments),
+                    )
+                )
 
         return CompletionResponse(
             content=content,
             stop_reason=stop_reason,
             input_tokens=response.usage.prompt_tokens,
             output_tokens=response.usage.completion_tokens,
+            tool_calls=tool_calls,
         )

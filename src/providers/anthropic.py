@@ -3,9 +3,10 @@
 import os
 
 from anthropic import AsyncAnthropic
+from anthropic.types import ToolUseBlock
 
 from src.config.models import ProviderConfig
-from src.types import CompletionResponse, GenerationParams, Message
+from src.types import CompletionResponse, GenerationParams, Message, ToolCall
 
 
 class AnthropicProvider:
@@ -69,20 +70,46 @@ class AnthropicProvider:
         if params.get("top_k") is not None:
             request_params["top_k"] = params["top_k"]
 
+        # Add tools if provided
+        if params.get("tools"):
+            # Convert from OpenAI format to Anthropic format
+            anthropic_tools = []
+            for tool in params["tools"]:
+                anthropic_tools.append(
+                    {
+                        "name": tool["function"]["name"],
+                        "description": tool["function"]["description"],
+                        "input_schema": tool["function"]["parameters"],
+                    }
+                )
+            request_params["tools"] = anthropic_tools
+
         # Call API
         response = await self.client.messages.create(**request_params)
 
-        # Extract response content
+        # Extract response content and tool calls
         content = ""
+        tool_calls: list[ToolCall] = []
+
         if response.content:
             # Anthropic returns list of content blocks
-            content = "".join(
-                block.text for block in response.content if hasattr(block, "text")
-            )
+            for block in response.content:
+                if hasattr(block, "text"):
+                    content += block.text
+                elif isinstance(block, ToolUseBlock):
+                    # Tool call block
+                    tool_calls.append(
+                        ToolCall(
+                            id=block.id,
+                            name=block.name,
+                            input=block.input,
+                        )
+                    )
 
         return CompletionResponse(
             content=content,
             stop_reason=response.stop_reason,
             input_tokens=response.usage.input_tokens,
             output_tokens=response.usage.output_tokens,
+            tool_calls=tool_calls,
         )

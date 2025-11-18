@@ -3,9 +3,10 @@
 import os
 
 import google.generativeai as genai
+from google.ai.generativelanguage_v1beta.types import content as glm_content
 
 from src.config.models import ProviderConfig
-from src.types import CompletionResponse, GenerationParams, Message
+from src.types import CompletionResponse, GenerationParams, Message, ToolCall
 
 
 class GeminiProvider:
@@ -81,13 +82,49 @@ class GeminiProvider:
         if params.get("system_prompt"):
             prompt = f"System: {params['system_prompt']}\n\n{prompt}"
 
+        # Prepare tools if provided
+        tools_param = None
+        if params.get("tools"):
+            # Convert from OpenAI format to Gemini format
+            # For MVP, basic function calling support
+            # Note: Gemini tool format is complex, this is simplified
+            gemini_functions = []
+            for tool in params["tools"]:
+                gemini_functions.append(
+                    {
+                        "name": tool["function"]["name"],
+                        "description": tool["function"]["description"],
+                        "parameters": tool["function"]["parameters"],
+                    }
+                )
+            tools_param = gemini_functions
+
         # Call API
-        response = await self.model.generate_content_async(
-            prompt, generation_config=generation_config
-        )
+        if tools_param:
+            response = await self.model.generate_content_async(
+                prompt, generation_config=generation_config, tools=tools_param
+            )
+        else:
+            response = await self.model.generate_content_async(
+                prompt, generation_config=generation_config
+            )
 
         # Extract response content
         content = response.text if response.text else ""
+
+        # Extract tool calls (Gemini returns function calls in parts)
+        tool_calls: list[ToolCall] = []
+        if response.candidates and response.candidates[0].content.parts:
+            for part in response.candidates[0].content.parts:
+                if hasattr(part, "function_call") and part.function_call:
+                    # Convert function call to our format
+                    tool_calls.append(
+                        ToolCall(
+                            id=f"gemini_{part.function_call.name}_{len(tool_calls)}",
+                            name=part.function_call.name,
+                            input=dict(part.function_call.args),
+                        )
+                    )
 
         # Extract token usage
         input_tokens = 0
@@ -103,4 +140,5 @@ class GeminiProvider:
             else None,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            tool_calls=tool_calls,
         )
