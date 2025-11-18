@@ -10,7 +10,8 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import Tool
 
-from src.config.models import SpawnRequest
+from src.config.models import ProviderConfig, SpawnRequest
+from src.config.providers import load_provider_configs
 from src.providers.anthropic import AnthropicProvider
 from src.providers.gemini import GeminiProvider
 from src.providers.ollama import OllamaProvider
@@ -32,16 +33,32 @@ def register_providers():
     logger.info("Registered providers: anthropic, openai_compatible, gemini, ollama")
 
 
-async def serve(transport: str = "stdio", port: int = 3000):
+async def serve(transport: str = "stdio", port: int = 3000, config_path: str = "config/providers.yaml"):
     """
     Start the MCP server.
 
     Args:
         transport: Transport type ("stdio" or "sse")
         port: Port for SSE transport (ignored for STDIO)
+        config_path: Path to provider configuration file
     """
     # Register providers
     register_providers()
+
+    # Load and validate provider configs at startup (fail fast)
+    logger.info(f"Loading provider configs from {config_path}")
+    try:
+        provider_configs: dict[str, ProviderConfig] = load_provider_configs(config_path)
+        logger.info(f"Validated {len(provider_configs)} provider(s): {', '.join(provider_configs.keys())}")
+    except FileNotFoundError as e:
+        logger.error(f"Config file not found: {e}")
+        sys.exit(1)
+    except ValueError as e:
+        logger.error(f"Invalid configuration: {e}")
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"Failed to load configs: {e}")
+        sys.exit(1)
 
     # Create server instance
     server = Server("skynet-mcp")
@@ -111,8 +128,8 @@ async def serve(transport: str = "stdio", port: int = 3000):
             # Parse and validate request
             request = SpawnRequest(**arguments)
 
-            # Execute spawn
-            result = await spawn_agent(request)
+            # Execute spawn with pre-loaded provider configs
+            result = await spawn_agent(request, provider_configs)
 
             # Return result as MCP content
             return [
@@ -142,11 +159,16 @@ def main():
         "--transport", choices=["stdio", "sse"], default="stdio", help="Transport protocol"
     )
     parser.add_argument("--port", type=int, default=3000, help="Port for SSE transport")
+    parser.add_argument(
+        "--config",
+        default="config/providers.yaml",
+        help="Path to provider configuration file",
+    )
 
     args = parser.parse_args()
 
     try:
-        asyncio.run(serve(args.transport, args.port))
+        asyncio.run(serve(args.transport, args.port, args.config))
     except KeyboardInterrupt:
         logger.info("Server stopped")
     except Exception as e:

@@ -1,25 +1,22 @@
 """MCP tool for spawning subagents."""
 
-from src.config.models import LLMError, SpawnRequest, TaskResult, TokenUsage
-from src.config.providers import load_provider_configs
+from src.config.models import LLMError, ProviderConfig, SpawnRequest, TaskResult, TokenUsage
 from src.orchestrator.task_executor import execute_task
 from src.providers.registry import registry
 
 
-async def spawn_agent(request: SpawnRequest, config_path: str = "config/providers.yaml") -> TaskResult:
+async def spawn_agent(request: SpawnRequest, provider_configs: dict[str, ProviderConfig]) -> TaskResult:
     """
     Spawn a subagent to perform a task.
 
     Args:
         request: Spawn request with task details
-        config_path: Path to provider configuration file
+        provider_configs: Pre-loaded provider configurations
 
     Returns:
         TaskResult with execution outcome
     """
     try:
-        # Load provider configurations
-        provider_configs = load_provider_configs(config_path)
 
         # Validate provider exists
         if request.provider not in provider_configs:
