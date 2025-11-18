@@ -55,7 +55,7 @@ async def spawn_agent(request: SpawnRequest, provider_configs: dict[str, Provide
         return TaskResult(
             success=False,
             result="",
-            provider_used=request.provider if request else "",
+            provider_used=request.provider,
             model_used="",
             tokens_used=TokenUsage(),
             cost=0.0,
