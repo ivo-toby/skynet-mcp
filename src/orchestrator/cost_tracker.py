@@ -12,8 +12,9 @@ class ModelPricing(TypedDict):
     output: float  # Cost per 1K output tokens
 
 
-# Pricing table (updated as of January 2025)
+# Pricing table (last verified as of January 2025, AI knowledge cutoff)
 # Prices are per 1K tokens (divide advertised per-1M rates by 1000)
+# NOTE: Pricing may be outdated. Always check provider websites for the most current rates.
 PRICING: dict[str, ModelPricing] = {
     # Anthropic Claude 3.5 (latest generation)
     "claude-3-5-haiku-20241022": {"input": 0.0008, "output": 0.004},
