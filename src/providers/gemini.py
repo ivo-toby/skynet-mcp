@@ -22,7 +22,8 @@ class GeminiProvider:
         api_key = os.getenv(config.api_key_env_var)
         if not api_key:
             raise ValueError(
-                f"API key not found in environment variable: {config.api_key_env_var}. Please set this variable with your Google AI API key."
+                f"API key not found in environment variable: {config.api_key_env_var}. "
+                f"Please set this variable with your API key: export {config.api_key_env_var}=your-key-here"
             )
 
         genai.configure(api_key=api_key)
