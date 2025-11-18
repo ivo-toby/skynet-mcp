@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -33,6 +34,41 @@ def register_providers():
     logger.info("Registered providers: anthropic, openai_compatible, gemini, ollama")
 
 
+def log_provider_health(provider_configs: dict[str, ProviderConfig]):
+    """
+    Log health check information for all configured providers.
+
+    Args:
+        provider_configs: Dictionary of provider configurations
+    """
+    logger.info("=" * 60)
+    logger.info("Provider Health Check")
+    logger.info("=" * 60)
+
+    for name, config in provider_configs.items():
+        logger.info(f"Provider: {name}")
+        logger.info(f"  Type: {config.type}")
+        logger.info(f"  Model: {config.default_model}")
+        logger.info(f"  Temperature: {config.default_temperature}")
+        logger.info(f"  Max Tokens: {config.default_max_tokens}")
+
+        # Check API key status
+        if config.type == "ollama":
+            logger.info(f"  API Key: Not required (local)")
+        else:
+            has_key = config.api_key_env_var in os.environ
+            logger.info(f"  API Key ({config.api_key_env_var}): {'✓ Present' if has_key else '✗ Missing'}")
+
+        # Log custom endpoint if configured
+        if config.api_base:
+            logger.info(f"  Custom Endpoint: {config.api_base}")
+
+        logger.info("")
+
+    logger.info(f"Total providers configured: {len(provider_configs)}")
+    logger.info("=" * 60)
+
+
 async def serve(transport: str = "stdio", port: int = 3000, config_path: str = "config/providers.yaml"):
     """
     Start the MCP server.
@@ -50,6 +86,9 @@ async def serve(transport: str = "stdio", port: int = 3000, config_path: str = "
     try:
         provider_configs: dict[str, ProviderConfig] = load_provider_configs(config_path)
         logger.info(f"Validated {len(provider_configs)} provider(s): {', '.join(provider_configs.keys())}")
+
+        # Log provider health check information
+        log_provider_health(provider_configs)
     except FileNotFoundError as e:
         logger.error(f"Config file not found: {e}")
         sys.exit(1)
