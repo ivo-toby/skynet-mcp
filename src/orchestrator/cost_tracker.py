@@ -12,9 +12,13 @@ class ModelPricing(TypedDict):
     output: float  # Cost per 1K output tokens
 
 
-# Pricing table (updated as of 2025-11-17)
+# Pricing table (updated as of January 2025)
+# Prices are per 1K tokens (divide advertised per-1M rates by 1000)
 PRICING: dict[str, ModelPricing] = {
-    # Anthropic
+    # Anthropic Claude 3.5 (latest generation)
+    "claude-3-5-haiku-20241022": {"input": 0.0008, "output": 0.004},
+    "claude-3-5-sonnet-20241022": {"input": 0.003, "output": 0.015},
+    # Anthropic Claude 3 (previous generation)
     "claude-3-haiku-20240307": {"input": 0.00025, "output": 0.00125},
     "claude-3-sonnet-20240229": {"input": 0.003, "output": 0.015},
     "claude-3-opus-20240229": {"input": 0.015, "output": 0.075},
@@ -22,12 +26,19 @@ PRICING: dict[str, ModelPricing] = {
     "gpt-4o": {"input": 0.0025, "output": 0.01},
     "gpt-4o-mini": {"input": 0.00015, "output": 0.0006},
     "gpt-4-turbo": {"input": 0.01, "output": 0.03},
+    "gpt-4-turbo-preview": {"input": 0.01, "output": 0.03},
     "gpt-3.5-turbo": {"input": 0.0005, "output": 0.0015},
-    # Google Gemini
+    # Google Gemini 1.5
     "gemini-1.5-flash": {"input": 0.000075, "output": 0.0003},
+    "gemini-1.5-flash-001": {"input": 0.000075, "output": 0.0003},
+    "gemini-1.5-flash-002": {"input": 0.000075, "output": 0.0003},
     "gemini-1.5-pro": {"input": 0.00125, "output": 0.005},
+    "gemini-1.5-pro-001": {"input": 0.00125, "output": 0.005},
+    "gemini-1.5-pro-002": {"input": 0.00125, "output": 0.005},
+    # Gemini 2.0 (experimental)
+    "gemini-2.0-flash-exp": {"input": 0.0, "output": 0.0},  # Free during preview
     # Ollama (local models - no cost)
-    # All ollama models return 0 cost
+    # All ollama models return 0 cost by returning None from this dict
 }
 
 
