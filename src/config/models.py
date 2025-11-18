@@ -94,7 +94,7 @@ class TaskResult(BaseModel):
     model_used: str
     tokens_used: TokenUsage
     cost: float = Field(..., ge=0.0, description="Estimated cost in USD")
-    duration_ms: int = Field(..., gt=0, description="Execution time")
+    duration_ms: int = Field(..., ge=0, description="Execution time in milliseconds (0 for pre-execution errors)")
     tools_called: list[str] = Field(default_factory=list)
     error: LLMError | None = None
 
