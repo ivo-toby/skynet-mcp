@@ -1,12 +1,15 @@
 """Task execution logic for subagent tasks."""
 
 import asyncio
+import logging
 from datetime import datetime
 
 from src.config.models import LLMError, SpawnRequest, TaskExecution, TaskResult, TaskStatus, TokenUsage
 from src.orchestrator.cost_tracker import calculate_cost
 from src.providers.base import LLMProvider
 from src.types import GenerationParams, Message
+
+logger = logging.getLogger(__name__)
 
 
 async def execute_task(
@@ -80,12 +83,22 @@ async def execute_task(
         cost = calculate_cost(model, execution.token_usage)
         execution.estimated_cost = cost
 
+        # Log cost estimation
+        logger.info(
+            f"Task cost: ${cost:.4f} | Tokens: {execution.token_usage.input} in / "
+            f"{execution.token_usage.output} out | Model: {model}"
+        )
+
         # Check budget limit
         if request.budget_limit is not None and cost > request.budget_limit:
             execution.status = TaskStatus.BUDGET_EXCEEDED
             execution.end_time = datetime.now()
             duration_ms = int(
                 (execution.end_time - execution.start_time).total_seconds() * 1000
+            )
+
+            logger.warning(
+                f"Budget exceeded! Cost ${cost:.4f} > limit ${request.budget_limit:.4f}"
             )
 
             return TaskResult(
@@ -108,6 +121,11 @@ async def execute_task(
         execution.end_time = datetime.now()
         duration_ms = int(
             (execution.end_time - execution.start_time).total_seconds() * 1000
+        )
+
+        logger.info(
+            f"Task completed successfully in {duration_ms}ms | "
+            f"Total cost: ${cost:.4f}"
         )
 
         return TaskResult(
