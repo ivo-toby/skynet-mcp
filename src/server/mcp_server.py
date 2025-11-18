@@ -12,6 +12,9 @@ from mcp.types import Tool
 
 from src.config.models import SpawnRequest
 from src.providers.anthropic import AnthropicProvider
+from src.providers.gemini import GeminiProvider
+from src.providers.ollama import OllamaProvider
+from src.providers.openai_compatible import OpenAICompatibleProvider
 from src.providers.registry import registry
 from src.server.tools.spawn_agent import spawn_agent
 
@@ -23,8 +26,10 @@ logger = logging.getLogger(__name__)
 def register_providers():
     """Register all provider implementations."""
     registry.register("anthropic", AnthropicProvider)
-    # Additional providers will be registered here in later phases
-    logger.info("Registered providers: anthropic")
+    registry.register("openai_compatible", OpenAICompatibleProvider)
+    registry.register("gemini", GeminiProvider)
+    registry.register("ollama", OllamaProvider)
+    logger.info("Registered providers: anthropic, openai_compatible, gemini, ollama")
 
 
 async def serve(transport: str = "stdio", port: int = 3000):
