@@ -22,7 +22,8 @@ class AnthropicProvider:
         api_key = os.getenv(config.api_key_env_var)
         if not api_key:
             raise ValueError(
-                f"API key not found in environment variable: {config.api_key_env_var}"
+                f"API key not found in environment variable: {config.api_key_env_var}. "
+                "Please set this variable with your Anthropic API key."
             )
 
         self.client = AsyncAnthropic(api_key=api_key)
