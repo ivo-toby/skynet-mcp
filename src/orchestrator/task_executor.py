@@ -100,9 +100,11 @@ async def execute_task(
                     error=LLMError(code="TIMEOUT", message=f"Task exceeded timeout of {request.timeout_ms}ms"),
                 )
 
-            # Update token usage
-            execution.token_usage.input += response["input_tokens"]
-            execution.token_usage.output += response["output_tokens"]
+            # Update token usage (create new TokenUsage to recalculate total)
+            execution.token_usage = TokenUsage(
+                input=execution.token_usage.input + response["input_tokens"],
+                output=execution.token_usage.output + response["output_tokens"],
+            )
 
             # Calculate cost
             cost = calculate_cost(model, execution.token_usage)
