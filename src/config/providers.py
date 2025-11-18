@@ -33,7 +33,20 @@ def load_provider_configs(path: Path | str) -> dict[str, ProviderConfig]:
         raise ValueError(f"Invalid provider config: missing 'providers' key in {path}")
 
     configs = {}
+    supported_types = ["anthropic", "openai_compatible", "gemini", "ollama"]
+
     for name, config_data in data["providers"].items():
+        # Validate provider type before creating config
+        provider_type = config_data.get("type")
+        if not provider_type:
+            raise ValueError(f"Provider '{name}' missing required 'type' field")
+
+        if provider_type not in supported_types:
+            raise ValueError(
+                f"Provider '{name}' has unsupported type '{provider_type}'. "
+                f"Supported types: {', '.join(supported_types)}"
+            )
+
         config = ProviderConfig(name=name, **config_data)
 
         # Verify API key environment variable exists (if specified)
