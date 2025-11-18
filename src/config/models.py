@@ -14,7 +14,7 @@ class ProviderConfig(BaseModel):
     name: str = Field(..., description="Unique identifier for the provider")
     type: Literal["anthropic", "openai_compatible", "gemini", "ollama"]
     api_base: str | None = Field(None, description="Base URL for API requests")
-    api_key_env_var: str = Field(..., description="Environment variable name for API key")
+    api_key_env_var: str = Field("", description="Environment variable name for API key (not needed for Ollama)")
     default_model: str = Field(..., description="Model to use when not specified")
     default_temperature: float = Field(0.7, ge=0.0, le=2.0)
     default_max_tokens: int = Field(1000, gt=0)
