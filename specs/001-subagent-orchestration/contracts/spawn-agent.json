@@ -1,0 +1,218 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "spawn_agent MCP Tool Contract",
+  "description": "MCP tool for spawning a subagent to perform a task",
+  "type": "object",
+  "tool": {
+    "name": "spawn_agent",
+    "description": "Spawn a subagent to perform a task and return results with token usage and cost tracking",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "description": "Name of the configured LLM provider to use (e.g., 'anthropic', 'openai', 'local')"
+        },
+        "task": {
+          "type": "string",
+          "description": "Natural language description of what the subagent should do"
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of tool names available to the subagent (empty list means no tools)",
+          "default": []
+        },
+        "model": {
+          "type": "string",
+          "description": "Override the provider's default model (optional)"
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2,
+          "description": "Sampling temperature (0.0-2.0, optional)"
+        },
+        "maxTokens": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum tokens for completion (optional)"
+        },
+        "topP": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Top-P nucleus sampling parameter (0.0-1.0, optional)"
+        },
+        "topK": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Top-K sampling parameter (optional, provider-dependent)"
+        },
+        "systemPrompt": {
+          "type": "string",
+          "description": "Custom system prompt for the subagent (optional)"
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 600000,
+          "default": 120000,
+          "description": "Task timeout in milliseconds (default: 120000, max: 600000)"
+        },
+        "budgetLimit": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Maximum cost in USD for this task (optional)"
+        }
+      },
+      "required": ["provider", "task"],
+      "additionalProperties": false
+    }
+  },
+  "response": {
+    "type": "object",
+    "properties": {
+      "success": {
+        "type": "boolean",
+        "description": "Whether the task completed successfully"
+      },
+      "result": {
+        "type": "string",
+        "description": "Output content from the subagent"
+      },
+      "providerUsed": {
+        "type": "string",
+        "description": "Name of the provider that executed the task"
+      },
+      "modelUsed": {
+        "type": "string",
+        "description": "Specific model identifier used"
+      },
+      "tokensUsed": {
+        "type": "object",
+        "properties": {
+          "input": {
+            "type": "integer",
+            "description": "Input/prompt tokens consumed"
+          },
+          "output": {
+            "type": "integer",
+            "description": "Output/completion tokens generated"
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total tokens (input + output)"
+          }
+        },
+        "required": ["input", "output", "total"]
+      },
+      "cost": {
+        "type": "number",
+        "description": "Estimated cost in USD"
+      },
+      "durationMs": {
+        "type": "integer",
+        "description": "Total execution time in milliseconds"
+      },
+      "toolsCalled": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "List of tool names the subagent invoked"
+      },
+      "error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Error code/type"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable error description"
+          }
+        },
+        "required": ["code", "message"],
+        "description": "Error details if success is false"
+      }
+    },
+    "required": ["success", "result", "providerUsed", "modelUsed", "tokensUsed", "cost", "durationMs", "toolsCalled"],
+    "additionalProperties": false
+  },
+  "examples": [
+    {
+      "name": "Simple task with Anthropic",
+      "request": {
+        "provider": "anthropic",
+        "task": "Summarize the key points from this text: [text content]"
+      },
+      "response": {
+        "success": true,
+        "result": "The key points are: 1) ..., 2) ..., 3) ...",
+        "providerUsed": "anthropic",
+        "modelUsed": "claude-3-haiku-20240307",
+        "tokensUsed": {
+          "input": 150,
+          "output": 75,
+          "total": 225
+        },
+        "cost": 0.000131,
+        "durationMs": 2340,
+        "toolsCalled": []
+      }
+    },
+    {
+      "name": "Task with budget limit exceeded",
+      "request": {
+        "provider": "openai",
+        "task": "Research and compile a comprehensive report on...",
+        "budgetLimit": 0.01
+      },
+      "response": {
+        "success": false,
+        "result": "",
+        "providerUsed": "openai",
+        "modelUsed": "gpt-4o",
+        "tokensUsed": {
+          "input": 500,
+          "output": 0,
+          "total": 500
+        },
+        "cost": 0.0125,
+        "durationMs": 1500,
+        "toolsCalled": [],
+        "error": {
+          "code": "BUDGET_EXCEEDED",
+          "message": "Task stopped: cost $0.0125 exceeds budget limit $0.01"
+        }
+      }
+    },
+    {
+      "name": "Task with tools",
+      "request": {
+        "provider": "local",
+        "task": "Find all TODO comments in the src directory",
+        "tools": ["grep", "read_file"],
+        "timeoutMs": 60000
+      },
+      "response": {
+        "success": true,
+        "result": "Found 12 TODO comments in 5 files:\n- src/index.ts:45: TODO: Add error handling\n...",
+        "providerUsed": "local",
+        "modelUsed": "llama3.2:3b",
+        "tokensUsed": {
+          "input": 200,
+          "output": 350,
+          "total": 550
+        },
+        "cost": 0,
+        "durationMs": 8500,
+        "toolsCalled": ["grep", "read_file", "read_file", "read_file"]
+      }
+    }
+  ]
+}
