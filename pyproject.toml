@@ -39,6 +39,7 @@ dev = [
     "mypy>=1.13.0",
     "ruff>=0.8.0",
     "python-dotenv>=1.0.1",
+    "types-PyYAML>=6.0.12",
 ]
 
 [project.scripts]
@@ -77,3 +78,18 @@ ignore = []
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
+[tool.pyright]
+include = ["src", "tests"]
+exclude = ["**/__pycache__", ".venv"]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.11"
+pythonPlatform = "Linux"
+typeCheckingMode = "basic"
+useLibraryCodeForTypes = true
+reportMissingImports = true
+reportMissingTypeStubs = false
+reportUnknownMemberType = false
+reportUnknownArgumentType = false
+reportUnknownVariableType = false
