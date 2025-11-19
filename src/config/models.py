@@ -41,9 +41,9 @@ class SpawnRequest(BaseModel):
 class TokenUsage(BaseModel):
     """Token consumption metrics."""
 
-    input: int = Field(0, ge=0, description="Input/prompt tokens")
-    output: int = Field(0, ge=0, description="Output/completion tokens")
-    total: int = Field(0, ge=0, description="Total tokens")
+    input: int = Field(default=0, ge=0, description="Input/prompt tokens")
+    output: int = Field(default=0, ge=0, description="Output/completion tokens")
+    total: int = Field(default=0, ge=0, description="Total tokens")
 
     def model_post_init(self, __context):
         """Ensure total equals input + output."""

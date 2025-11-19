@@ -1,6 +1,7 @@
 """OpenAI-compatible provider implementation."""
 
 import os
+from typing import Any
 
 from openai import AsyncOpenAI
 
@@ -27,11 +28,11 @@ class OpenAICompatibleProvider:
             )
 
         # Initialize client with custom base URL if provided
-        client_params = {"api_key": api_key}
         if config.api_base:
-            client_params["base_url"] = config.api_base
+            self.client = AsyncOpenAI(api_key=api_key, base_url=config.api_base)
+        else:
+            self.client = AsyncOpenAI(api_key=api_key)
 
-        self.client = AsyncOpenAI(**client_params)
         self.model = config.default_model
 
     async def generate_completion(
@@ -49,13 +50,11 @@ class OpenAICompatibleProvider:
         """
         # Handle system prompt
         if params.get("system_prompt"):
-            messages = [
-                {"role": "system", "content": params["system_prompt"]},
-                *messages,
-            ]
+            system_msg: Message = {"role": "system", "content": params["system_prompt"] or ""}
+            messages = [system_msg, *messages]
 
         # Prepare request parameters
-        request_params = {
+        request_params: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
         }
@@ -82,7 +81,7 @@ class OpenAICompatibleProvider:
             request_params["tools"] = params["tools"]
 
         # Call API
-        response = await self.client.chat.completions.create(**request_params)
+        response = await self.client.chat.completions.create(**request_params)  # type: ignore[arg-type]
 
         # Extract response content and tool calls
         content = response.choices[0].message.content or ""

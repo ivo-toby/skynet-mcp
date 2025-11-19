@@ -1,6 +1,7 @@
 """Ollama provider implementation for local models."""
 
 import json
+from typing import Any
 
 import ollama
 
@@ -63,13 +64,11 @@ class OllamaProvider:
 
         # Handle system prompt
         if params.get("system_prompt"):
-            messages = [
-                {"role": "system", "content": params["system_prompt"]},
-                *messages,
-            ]
+            system_msg: Message = {"role": "system", "content": params["system_prompt"] or ""}
+            messages = [system_msg, *messages]
 
         # Prepare request params
-        request_params = {
+        request_params: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
             "options": options,

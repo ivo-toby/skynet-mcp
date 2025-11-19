@@ -4,14 +4,23 @@ import asyncio
 import json
 import logging
 from datetime import datetime
+from typing import Any, TypedDict
 
 from src.config.models import LLMError, SpawnRequest, TaskExecution, TaskResult, TaskStatus, TokenUsage
 from src.orchestrator.cost_tracker import calculate_cost
 from src.orchestrator.tool_definitions import execute_tool, get_tools_for_request
 from src.providers.base import LLMProvider
-from src.types import GenerationParams, Message
+from src.types import GenerationParams, Message, ToolCall
 
 logger = logging.getLogger(__name__)
+
+
+class ToolResultDict(TypedDict):
+    """Internal type for tool execution results."""
+
+    tool_call_id: str
+    tool_name: str
+    result: str
 
 
 async def execute_task(
@@ -152,7 +161,7 @@ async def execute_task(
                 logger.info(f"LLM requested {len(response['tool_calls'])} tool calls")
 
                 # Execute each tool
-                tool_results = []
+                tool_results: list[ToolResultDict] = []
                 for tool_call in response["tool_calls"]:
                     tool_name = tool_call["name"]
                     tool_input = tool_call["input"]
@@ -169,26 +178,30 @@ async def execute_task(
                         logger.error(f"Tool execution failed: {e}")
                         tool_result = json.dumps({"error": f"Tool execution failed: {str(e)}"})
 
-                    tool_results.append({
-                        "tool_call_id": tool_call["id"],
-                        "tool_name": tool_name,
-                        "result": tool_result,
-                    })
+                    tool_results.append(
+                        ToolResultDict(
+                            tool_call_id=tool_call["id"],
+                            tool_name=tool_name,
+                            result=tool_result,
+                        )
+                    )
 
                 # Add assistant message with tool calls to conversation
-                messages.append({
+                assistant_msg: Message = {
                     "role": "assistant",
                     "content": response["content"] or "",
                     "tool_calls": response["tool_calls"],
-                })
+                }
+                messages.append(assistant_msg)
 
                 # Add tool results to conversation
-                for tool_result in tool_results:
-                    messages.append({
+                for tool_result_item in tool_results:
+                    tool_msg: Message = {
                         "role": "tool",
-                        "tool_call_id": tool_result["tool_call_id"],
-                        "content": tool_result["result"],
-                    })
+                        "tool_call_id": tool_result_item["tool_call_id"],
+                        "content": tool_result_item["result"],
+                    }
+                    messages.append(tool_msg)
 
                 # Continue loop to get next response with tool results
                 continue

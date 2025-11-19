@@ -1,6 +1,7 @@
 """Anthropic provider implementation."""
 
 import os
+from typing import Any
 
 from anthropic import AsyncAnthropic
 from anthropic.types import ToolUseBlock
@@ -46,11 +47,14 @@ class AnthropicProvider:
         # Extract system message if present
         system_prompt = params.get("system_prompt")
         if not system_prompt and messages and messages[0]["role"] == "system":
-            system_prompt = messages[0]["content"]
+            content = messages[0]["content"]
+            # content can be str or list, extract str if present
+            if isinstance(content, str):
+                system_prompt = content
             messages = messages[1:]
 
         # Prepare request parameters
-        request_params = {
+        request_params: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
             "max_tokens": params.get("max_tokens") or self.config.default_max_tokens,
@@ -71,10 +75,11 @@ class AnthropicProvider:
             request_params["top_k"] = params["top_k"]
 
         # Add tools if provided
-        if params.get("tools"):
+        tools_param = params.get("tools")
+        if tools_param:
             # Convert from OpenAI format to Anthropic format
-            anthropic_tools = []
-            for tool in params["tools"]:
+            anthropic_tools: list[dict[str, Any]] = []
+            for tool in tools_param:
                 anthropic_tools.append(
                     {
                         "name": tool["function"]["name"],

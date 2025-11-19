@@ -1,6 +1,7 @@
 """Google Gemini provider implementation."""
 
 import os
+from typing import Any
 
 import google.generativeai as genai
 from google.ai.generativelanguage_v1beta.types import content as glm_content
@@ -44,7 +45,7 @@ class GeminiProvider:
             CompletionResponse with content and token usage
         """
         # Prepare generation config (Gemini uses nested config object)
-        generation_config = {}
+        generation_config: dict[str, Any] = {}
 
         if params.get("max_tokens") is not None:
             generation_config["max_output_tokens"] = params["max_tokens"]
@@ -83,13 +84,14 @@ class GeminiProvider:
             prompt = f"System: {params['system_prompt']}\n\n{prompt}"
 
         # Prepare tools if provided
-        tools_param = None
-        if params.get("tools"):
+        tools_param: list[dict[str, Any]] | None = None
+        tools_from_params = params.get("tools")
+        if tools_from_params:
             # Convert from OpenAI format to Gemini format
             # For MVP, basic function calling support
             # Note: Gemini tool format is complex, this is simplified
-            gemini_functions = []
-            for tool in params["tools"]:
+            gemini_functions: list[dict[str, Any]] = []
+            for tool in tools_from_params:
                 gemini_functions.append(
                     {
                         "name": tool["function"]["name"],
@@ -102,11 +104,11 @@ class GeminiProvider:
         # Call API
         if tools_param:
             response = await self.model.generate_content_async(
-                prompt, generation_config=generation_config, tools=tools_param
+                prompt, generation_config=generation_config, tools=tools_param  # type: ignore[arg-type]
             )
         else:
             response = await self.model.generate_content_async(
-                prompt, generation_config=generation_config
+                prompt, generation_config=generation_config  # type: ignore[arg-type]
             )
 
         # Extract response content
